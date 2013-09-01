@@ -1,0 +1,9 @@
+#labels Phase-QA,Phase-Deploy
+Update in 2011-08-02
+<wiki:toc max_depth="3" />
+
+= Coming soon =
+
+= How to get the execution info of a part of code with KGTP =
+KGTP support some interface to get the clock ($clock and $rdtsc) and the performance counters.  We can get the execution info from them.
+

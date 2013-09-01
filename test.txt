@@ -1,0 +1,667 @@
+#Test if the kmemleak is work or not
+echo clear > /sys/kernel/debug/kmemleak
+ftp 172.20.0.12
+binary
+lcd mm
+put kmemleak-test.ko
+insmod kmemleak-test.ko
+echo scan > /sys/kernel/debug/kmemleak
+reboot
+
+#Get info of kmemleak
+ftp 172.20.0.12
+binary
+cd /sys/kernel/debug/
+get kmemleak
+
+echo clear > /sys/kernel/debug/kmemleak
+nc -l -p 8888 < /sys/kernel/debug/gtp >/sys/kernel/debug/gtp &
+target remote 172.20.0.12:8888
+
+p jiffies_64
+#Access static LIST_HEAD(modules)
+p *((struct module *)((char *)modules->next - ((size_t) &(((struct module *)0)->list))))
+p *((struct module *)((char *)modules->next->next - ((size_t) &(((struct module *)0)->list))))
+ls
+#Access DEFINE_PER_CPU(irq_cpustat_t, irq_stat) ____cacheline_internodealigned_in_smp;
+p *(irq_cpustat_t *)(__per_cpu_offset[0]+(uint64_t)(&per_cpu__irq_stat))
+p *(irq_cpustat_t *)(__per_cpu_offset[1]+(uint64_t)(&per_cpu__irq_stat))
+
+trace vfs_read
+actions
+collect $bt
+end
+info tracepoints
+tstart
+tstop
+tfind
+
+#User space attach
+gcc -g -static ~/kernel/svn/bak/test.c
+ftp 172.20.0.12
+binary
+put a.out
+nc -l -p 8888 < /sys/kernel/debug/gtp >/sys/kernel/debug/gtp &
+./a.out
+target extended-remote 172.20.0.12:8888
+add-inferior
+inferior 2
+file a.out
+ps -e
+attach xxx
+p c
+
+#User space trace
+inferior 1
+ps -e
+trace vfs_write if ($current_task_pid == xxx)
+actions
+collect $bt
+end
+trace vfs_write if ($current_task_pid == xxx)
+inferior 2
+actions
+collect $current
+collect $bt
+collect c
+end
+tvariable $bt=1024
+tstart
+tstop
+p c
+kill xxx
+
+#Offline debug
+gdb ./vmlinux
+target remote | perl ~/kernel/svn/trunk/getgtprsp.pl
+trace vfs_write
+actions
+collect $bt
+end
+tstart
+tstop
+ftp 172.20.0.12
+binary
+put gtpstart
+put gtpstop
+/putgtprsp gtpstart
+/putgtprsp gtpstop
+ftp 172.20.0.12
+binary
+cd /sys/kernel/debug/
+get gtpframe
+gdb ./vmlinux
+target tfile ./gtpframe
+rmmod gtp
+echo scan > /sys/kernel/debug/kmemleak
+echo clear > /sys/kernel/debug/kmemleak
+insmod gtp.ko
+
+#TSV
+nc -l -p 8888 < /sys/kernel/debug/gtp >/sys/kernel/debug/gtp &
+gdb ./vmlinux
+target remote 172.20.0.12:8888
+set pagination off
+tvariable $bt=1024
+tvariable $p_count
+tvariable $p_cc
+set $tmp=0
+while $tmp<$cpu_number
+eval "tvariable $p_cc%d",$tmp
+set $tmp=$tmp+1
+end
+tvariable $ignore_error=1
+trace raw_local_irq_disable
+  commands
+    teval $p_count=$clock
+  end
+trace raw_local_irq_enable if ($p_count && $p_cc < $clock - $p_count)
+  commands
+    teval $p_cc = $clock - $p_count
+    collect $bt
+    collect $p_cc
+    teval $p_count=0
+  end
+enable
+set pagination on
+set remotetimeout 1024
+tstart
+tstop
+source ~/kernel/svn/bak/show/20121110/slow.py
+!cat ~/kernel/svn/bak/show/20121110/slow.py
+
+#Output directly
+tfind -1
+k
+target remote | perl /home/teawater/kernel/svn/trunk/getgtprsp.pl
+actions
+teval $p_cc = $clock - $p_count
+teval $printk_level=0
+collect $dump_stack
+collect $p_cc
+teval $p_count=0
+end
+tstart
+tstop
+ftp 172.20.0.12
+binary
+put gtpstart
+put gtpstop
+/putgtprsp gtpstart
+/putgtprsp gtpstop
+
+rmmod gtp
+echo scan > /sys/kernel/debug/kmemleak
+cat /sys/kernel/debug/kmemleak
+echo clear > /sys/kernel/debug/kmemleak
+
+#Plugin
+make clean
+make P=1
+ftp 172.20.0.12
+binary
+put plugin_example.ko
+insmod gtp.ko
+insmod plugin_example.ko
+nc -l -p 8888 < /sys/kernel/debug/gtp >/sys/kernel/debug/gtp &
+gdb ./vmlinux
+target remote 172.20.0.12:8888
+info tvariables
+cat /proc/kallsyms
+trace vfs_readdir
+actions
+teval $test3=(int64_t)$rip
+teval $test3=(int64_t)0x...
+end
+tstart
+ls
+tstop
+quit
+rmmod plugin_example
+
+#Watch tracepoints
+nc -l -p 8888 < /sys/kernel/debug/gtp >/sys/kernel/debug/gtp &
+gdb ./vmlinux
+target remote 172.20.0.12:8888
+
+trace *&jiffies_64
+  commands
+    teval $watch_static=1
+    teval $watch_type=1
+    teval $watch_size=8
+    collect $watch_val
+    collect $watch_prev_val
+    collect $bt
+  end
+tstart
+tstop
+display $cpu_id
+display $watch_val
+display $watch_prev_val
+
+#error
+trace vfs_read
+  commands
+    teval $watch_set_id=100
+    teval $watch_size=4
+    teval $watch_start=&jiffies_64
+  end
+tstart
+tstop
+
+#error
+trace *&jiffies_64
+  commands
+    teval $watch_set_id=100
+    teval $watch_static=1
+    teval $watch_type=1
+    teval $watch_size=8
+    collect $watch_val
+    collect $bt
+  end
+tstart
+tstop
+
+trace *0
+  commands
+    teval $watch_static=0
+    teval $watch_type=1
+    teval $watch_size=8
+    collect $bt
+    collect $watch_val
+    collect $watch_prev_val
+  end
+list alloc_inode
+trace 215
+  commands
+    teval $watch_set_addr=0
+    teval $watch_size=4
+    teval $watch_start=&(inode->i_uid)
+    teval $watch_start=&(inode->i_gid)
+    teval $watch_size=8
+    teval $watch_start=&(inode->i_op)
+    teval $watch_start=&(inode->i_fop)
+  end
+trace destroy_inode
+  commands
+    teval $watch_stop=&(inode->i_uid)
+    teval $watch_stop=&(inode->i_gid)
+    teval $watch_stop=&(inode->i_op)
+    teval $watch_stop=&(inode->i_fop)
+  end
+tstart
+cd bin
+ls
+tstop
+undisplay
+display $cpu_id
+display $watch_val
+display $watch_prev_val
+
+
+trace *1
+  commands
+    teval $watch_static=0
+    teval $watch_type=1
+    teval $watch_size=8
+    collect $bt
+    collect $watch_addr
+    collect $watch_val
+    collect $watch_prev_val
+  end
+list get_empty_filp
+trace 133
+  commands
+    teval $watch_set_addr=1
+    teval $watch_size=4
+    teval $watch_start=&(f->f_pos)
+    teval $watch_size=8
+    teval $watch_start=&(f->f_op)
+  end
+trace file_kill
+  commands
+    teval $watch_stop=&(file->f_pos)
+    teval $watch_stop=&(file->f_op)
+  end
+tstart
+cat gtp.ko
+tstop
+display $cpu_id
+display $watch_val
+display $watch_prev_val
+
+#step
+trace vfs_read
+  commands
+    collect $regs
+    collect $step_count
+    while-stepping 1000
+      collect $regs
+      collect $step_count
+    end
+  end
+tstart
+cat gtp.ko
+tstop
+undisplay
+display $cpu_id
+display $step_count
+monitor replay
+tfind -1
+b
+
+trace do_IRQ
+  commands
+    collect $bt
+    collect $step_count
+    while-stepping 1000
+      collect $bt
+      collect $step_count
+    end
+  end
+tstart
+tstop
+undisplay
+display $cpu_id
+display $step_count
+monitor replay
+tfind -1
+b
+
+rmmod gtp
+echo scan > /sys/kernel/debug/kmemleak
+cat /sys/kernel/debug/kmemleak
+
+#-----------------------------------------------------------------------
+/home/teawater/soft/android/android-sdk-linux/tools/emulator -verbose -kernel /home/teawater/soft/android/bg/arch/arm/boot/zImage -avd a43
+
+cd /home/teawater/soft/android/bg
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- -j8 menuconfig
+[*] Enable loadable module support  --->
+General setup  ---> 
+	[*] Prompt for development and/or incomplete code/drivers
+	[*] Kprobes
+Kernel hacking  --->
+	[*] Debug Filesystem
+	[*] Compile the kernel with debug info
+
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- KERNELDIR=/home/teawater/soft/android/bg/
+
+sudo adb devices
+
+sudo adb shell lsmod
+sudo adb shell ls /sys/kernel/debug/gtp
+
+p linux_banner
+
+p jiffies_64
+#-----------------------------------------------------------------------
+sudo su -
+
+echo clear > /sys/kernel/debug/kmemleak
+modprobe kmemleak-test
+echo scan > /sys/kernel/debug/kmemleak
+
+#Get info of kmemleak
+cat /sys/kernel/debug/kmemleak
+
+p jiffies_64
+#Access static LIST_HEAD(modules)
+p *((struct module *)((char *)modules->next - ((size_t) &(((struct module *)0)->list))))
+p *((struct module *)((char *)modules->next->next - ((size_t) &(((struct module *)0)->list))))
+!lsmod
+#Access DEFINE_PER_CPU(irq_cpustat_t, irq_stat) ____cacheline_internodealigned_in_smp;
+p *(irq_cpustat_t *)(__per_cpu_offset[0]+(uint64_t)(&irq_stat))
+p *(irq_cpustat_t *)(__per_cpu_offset[1]+(uint64_t)(&irq_stat))
+
+trace vfs_read
+actions
+collect $bt
+end
+info tracepoints
+tstart
+tstop
+tfind
+
+#User space attach
+gcc -g ~/kernel/svn/bak/test.c
+./a.out
+gtpe
+add-inferior
+inferior 2
+file a.out
+!ps -e | grep a.out
+attach xxx
+p c
+
+#User space trace
+inferior 1
+trace vfs_write if ($current_task_pid == xxx)
+actions
+collect $bt
+end
+trace vfs_write if ($current_task_pid == xxx)
+inferior 2
+actions
+collect $current
+collect $bt
+collect c
+end
+tvariable $bt=1024
+tstart
+tstop
+p c
+kill xxx
+
+#Offline debug
+gdb ./vmlinux
+target remote | perl /home/teawater/kernel/svn/trunk/getgtprsp.pl
+trace vfs_readdir
+actions
+collect $bt
+end
+tstart
+tstop
+sudo ~/kernel/svn/trunk/putgtprsp gtpstart
+sudo ~/kernel/svn/trunk/putgtprsp gtpstop
+target tfile /sys/kernel/debug/gtpframe
+
+#TSV
+gtp
+set disconnected-tracing off
+d
+set pagination off
+tvariable $bt=1024
+tvariable $p_count
+tvariable $p_cc
+set $tmp=0
+while $tmp<$cpu_number
+eval "tvariable $p_cc%d",$tmp
+set $tmp=$tmp+1
+end
+tvariable $ignore_error=1
+trace arch_local_irq_disable
+  commands
+    teval $p_count=$clock
+  end
+trace arch_local_irq_enable if ($p_count && $p_cc < $clock - $p_count)
+  commands
+    teval $p_cc = $clock - $p_count
+    collect $bt
+    collect $p_cc
+    teval $p_count=0
+  end
+enable
+set pagination on
+source /home/teawater/kernel/svn/bak/show/20121110/slow.py
+
+#Output directly
+tfind -1
+k
+target remote | perl /home/teawater/kernel/svn/trunk/getgtprsp.pl
+actions
+teval $p_cc = $clock - $p_count
+teval $printk_level=0
+collect $dump_stack
+collect $p_cc
+teval $p_count=0
+end
+tstart
+tstop
+sudo ~/kernel/svn/trunk/putgtprsp gtpstart
+sudo ~/kernel/svn/trunk/putgtprsp gtpstop
+tail -f /var/log/syslog
+
+sudo su
+rmmod gtp
+echo scan > /sys/kernel/debug/kmemleak
+cat /sys/kernel/debug/kmemleak
+echo clear > /sys/kernel/debug/kmemleak
+
+set disconnected-tracing off
+
+#Plugin
+make clean
+make P=1
+sudo insmod gtp.ko
+sudo insmod plugin_example.ko
+sudo gdb ./vmlinux
+gtp
+info tvariables
+!cat /proc/kallsyms
+trace vfs_readdir
+actions
+teval $test3=(int64_t)$rip
+teval $test3=(int64_t)0x...
+end
+tstart
+!ls
+tstop
+quit
+sudo rmmod plugin_example
+
+#Watch tracepoints
+trace *&jiffies_64
+  commands
+    teval $watch_static=1
+    teval $watch_type=1
+    teval $watch_size=8
+    collect $watch_val
+    collect $watch_prev_val
+    collect $bt
+  end
+tstart
+tstop
+display $cpu_id
+display $watch_val
+display $watch_prev_val
+
+#error
+trace vfs_read
+  commands
+    teval $watch_set_id=100
+    teval $watch_size=4
+    teval $watch_start=&jiffies_64
+  end
+tstart
+tstop
+
+#error
+trace *&jiffies_64
+  commands
+    teval $watch_set_id=100
+    teval $watch_static=1
+    teval $watch_type=1
+    teval $watch_size=8
+    collect $watch_val
+    collect $bt
+  end
+tstart
+tstop
+
+trace *0
+  commands
+    teval $watch_static=0
+    teval $watch_type=1
+    teval $watch_size=8
+    collect $bt
+    collect $watch_val
+    collect $watch_prev_val
+  end
+list alloc_inode
+trace 214
+#trace 222
+  commands
+    teval $watch_set_addr=0
+    teval $watch_size=4
+    teval $watch_start=&(inode->i_uid)
+    teval $watch_start=&(inode->i_gid)
+    teval $watch_size=8
+    teval $watch_start=&(inode->i_op)
+    teval $watch_start=&(inode->i_fop)
+  end
+#list destroy_inode
+#trace 258
+#trace 270
+trace destroy_inode
+  commands
+    teval $watch_stop=&(inode->i_uid)
+    teval $watch_stop=&(inode->i_gid)
+    teval $watch_stop=&(inode->i_op)
+    teval $watch_stop=&(inode->i_fop)
+  end
+tstart
+cd bin
+ls
+tstop
+undisplay
+display $cpu_id
+display $watch_val
+display $watch_prev_val
+
+trace *1
+  commands
+    teval $watch_static=0
+    teval $watch_type=1
+    teval $watch_size=8
+    collect $bt
+    collect $watch_addr
+    collect $watch_val
+    collect $watch_prev_val
+  end
+#Need set in get_empty_filp:spin_lock_init(&f->f_lock);
+list get_empty_filp
+#trace 140
+trace 135
+  commands
+    teval $watch_set_addr=1
+    teval $watch_size=4
+    teval $watch_start=&(f->f_pos)
+    teval $watch_size=8
+    teval $watch_start=&(f->f_op)
+  end
+list fput
+trace 309
+  commands
+    teval $watch_stop=&(file->f_pos)
+    teval $watch_stop=&(file->f_op)
+  end
+
+trace file_sb_list_del
+  commands
+    teval $watch_stop=&(file->f_pos)
+    teval $watch_stop=&(file->f_op)
+  end
+tstart
+cat gtp.ko
+tstop
+display $cpu_id
+display $watch_val
+display $watch_prev_val
+
+#step
+#sudo gdb /usr/lib/debug/lib/modules/$(uname -r)/vmlinux
+target remote /sys/kernel/debug/gtp
+#set disconnected-tracing on
+trace vfs_read
+passcount 1
+  commands
+    collect $bt
+    collect $step_count
+    while-stepping 2000
+      collect $bt
+      collect $step_count
+    end
+  end
+tstart
+cat gtp.ko
+tstop
+undisplay
+display $cpu_id
+display $step_count
+monitor replay
+tfind -1
+b
+
+trace do_IRQ
+passcount 1
+  commands
+    collect $bt
+    collect $step_count
+    while-stepping 7000
+      collect $bt
+      collect $step_count
+    end
+  end
+tstart
+tstop
+undisplay
+display $cpu_id
+display $step_count
+monitor replay
+tfind -1
+b
+
+rmmod gtp
+echo scan > /sys/kernel/debug/kmemleak
+cat /sys/kernel/debug/kmemleak

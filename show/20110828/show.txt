@@ -1,0 +1,62 @@
+放视频
+make
+sudo insmod gtp.ko
+sudo gdb ./vmlinux
+target remote /sys/kernel/debug/gtp
+cd /home/teawater/kernel2/b26
+-------------------------------------------------------------------------
+p jiffies_64
+p *((struct module *)((char *)modules->next - ((size_t) &(((struct module *)0)->list))))
+p ((struct rq *)(__per_cpu_offset[1]+(uint64_t)&runqueues)).curr->comm
+p ((struct rq *)(__per_cpu_offset[1]+(uint64_t)&runqueues)).curr->parent->comm
+-------------------------------------------------------------------------
+trace vfs_readdir
+actions
+collect $clock
+collect $args
+collect file->f_path.dentry->d_iname
+end
+shell ls
+tfind
+tdump
+-------------------------------------------------------------------------
+sudo qemu-system-x86_64 -nographic -k en-us -kernel /home/teawater/kernel2/b26/arch/x86/boot/bzImage -gdb tcp::12345 -net tap,script=/etc/qup -net nic,macaddr=52:54:00:12:34:56,model=i82557b -append "console=ttyS0,115200 root=/dev/sda rw" -hda /home/teawater/kernel/fs_64.img
+insmod gtp.ko
+nc -l -p 8888 < /sys/kernel/debug/gtp >/sys/kernel/debug/gtp &
+target remote 172.20.0.12:8888
+p ((struct rq *)(__per_cpu_offset[0]+(uint64_t)&runqueues)).curr->comm
+trace vfs_readdir
+actions
+collect $clock
+collect $args
+collect file->f_path.dentry->d_iname
+end
+tfind
+tdump
+-------------------------------------------------------------------------
+tvariable $ignore_error
+trace spinlock.h:285
+actions
+collect *(unsigned char *)$rsp@512
+end
+-------------------------------------------------------------------------
+source ~/kernel/svn/example/pe/pe.s
+0       PERF_TYPE_HARDWARE
+5       PERF_COUNT_HW_BRANCH_MISSES
+dpe 0 5 1
+trace register_kprobe
+tstart
+spe 0 5
+-------------------------------------------------------------------------
+sudo gdb ./vmlinux
+source ~/kernel/svn/show/20110828/task.s
+sudo gdb ./vmlinux -x /home/teawater/kernel/svn/show/20110828/task.py
+-------------------------------------------------------------------------
+感谢YANG XI
+sudo gdb ./vmlinux
+source ~/kernel/svn/show/20110828/io.s
+tstart
+sudo gdb ./vmlinux -x /home/teawater/kernel/svn/show/20110828/io.py
+cd kernel
+cp -rf barm_versatile_926ejs tmp
+-------------------------------------------------------------------------

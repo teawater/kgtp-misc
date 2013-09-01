@@ -1,0 +1,155 @@
+Show 1:
+sudo insmod gtp.ko
+sudo gdb /usr/lib/debug/boot/vmlinux-$(uname -r)
+target remote /sys/kernel/debug/gtp
+p jiffies_64
+#Access static LIST_HEAD(modules)
+p *((struct module *)((char *)modules->next - ((size_t) &(((struct module *)0)->list))))
+p *((struct module *)((char *)modules->next->next - ((size_t) &(((struct module *)0)->list))))
+#Access DEFINE_PER_CPU(irq_cpustat_t, irq_stat) ____cacheline_internodealigned_in_smp;
+p *(irq_cpustat_t *)(__per_cpu_offset[0]+(uint64_t)(&irq_stat))
+p *(irq_cpustat_t *)(__per_cpu_offset[1]+(uint64_t)(&irq_stat))
+
+Show 2:
+trace vfs_read
+actions
+collect $bt
+end
+info tracepoints
+tstart
+tstop
+tfind
+quit
+
+Show 3:
+#GDB attach
+ps -e | grep mplayer
+sudo gdb -p xxx
+p osd_level
+quit
+#KGTP
+sudo gdb /usr/lib/debug/boot/vmlinux-$(uname -r)
+target extended-remote /sys/kernel/debug/gtp
+add-inferior
+inferior 2
+file /usr/bin/mplayer
+!ps -e | grep mplayer
+attach xxx
+p osd_level
+
+Show 4:
+!ps -e | grep mplayer
+trace do_poll if ($current_task_pid == xxx)
+actions
+collect $bt
+end
+trace do_poll if ($current_task_pid == xxx)
+inferior 2
+actions
+collect $current
+collect $bt
+collect osd_level
+end
+tvariable $bt=1024
+tstart
+tstop
+p osd_level
+quit 
+
+Show 5:
+sudo su
+nc -l 1234 </sys/kernel/debug/gtp >/sys/kernel/debug/gtp
+gdb /usr/lib/debug/boot/vmlinux-$(uname -r)
+target remote 127.0.0.1:1234
+p jiffies_64
+
+Show 6:
+gdb /usr/lib/debug/boot/vmlinux-$(uname -r)
+target remote | perl ./getgtprsp.pl
+trace vfs_readdir
+actions
+collect $bt
+end
+tstart
+tstop
+sudo su
+./putgtprsp gtpstart > /sys/kernel/debug/gtp
+./putgtprsp gtpstop > /sys/kernel/debug/gtp
+cat /sys/kernel/debug/gtpframe > ./gtpframe
+gdb /usr/lib/debug/boot/vmlinux-$(uname -r)
+target tfile ./gtpframe
+
+Show 7:
+sudo gdb /usr/lib/debug/boot/vmlinux-$(uname -r)
+target remote /sys/kernel/debug/gtp
+set disconnected-tracing off
+d
+set pagination off
+tvariable $bt=1024
+tvariable $p_count
+tvariable $p_cc
+set $tmp=0
+while $tmp<$cpu_number
+eval "tvariable $p_cc%d",$tmp
+set $tmp=$tmp+1
+end
+tvariable $ignore_error=1
+trace arch_local_irq_disable
+  commands
+    teval $p_count=$clock
+  end
+trace arch_local_irq_enable if ($p_count && $p_cc < $clock - $p_count)
+  commands
+    teval $p_cc = $clock - $p_count
+    collect $bt
+    collect $p_cc
+    teval $p_count=0
+  end
+enable
+set pagination on
+
+Show 8:
+source ~/kernel/svn/bak/show/20121110/slow.py
+!cat ~/kernel/svn/bak/show/20121110/slow.py
+
+Show 9:
+tfind -1
+k
+target remote | perl ./getgtprsp.pl
+actions
+teval $p_cc = $clock - $p_count
+teval $printk_level=0
+collect $dump_stack
+collect $p_cc
+teval $p_count=0
+end
+tstart
+tstop
+quit
+tail -f /var/log/syslog
+sudo su
+./putgtprsp gtpstart > /sys/kernel/debug/gtp
+./putgtprsp gtpstop > /sys/kernel/debug/gtp
+
+Show 10:
+cat plugin_example.c
+sudo rmmod gtp
+make clean
+make P=1
+sudo insmod gtp.ko
+sudo insmod plugin_example.ko
+tail -f /var/log/syslog
+sudo gdb /usr/lib/debug/boot/vmlinux-$(uname -r)
+target remote /sys/kernel/debug/gtp
+info tvariables
+!cat /proc/kallsyms
+trace vfs_readdir
+actions
+teval $test3=(int64_t)$rip
+teval $test3=(int64_t)0x...
+end
+tstart
+!ls
+tstop
+quit
+sudo rmmod plugin_example

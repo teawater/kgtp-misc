@@ -1,0 +1,11 @@
+#labels Phase-QA,Phase-Deploy
+Update in 2011-08-02
+<wiki:toc max_depth="3" />
+
+= 制作中 请稍等 :) =
+
+= 如何用KGTP取得一块代码的执行信息 =
+KGTP支持取得时间信息的接口($clock and $rdtsc)和performance counters的接口，可以通过这些信息取得一块代码(比如一个函数)的执行信息。
+== 取得一块关中断代码的执行信息 ==
+这样的代码是相对好分析的，因为除非是NMI，否则不会有其他代码在当前CPU上执行，KGTP可以方便的通过各种接口取得执行信息。
+=== 首先要确定当前要分析的代码是不是关中断的 ===
