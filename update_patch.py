@@ -49,7 +49,7 @@ def version_num (v_string):
 
 home = os.path.expandvars('$HOME')
 
-srcdir = home+"/kernel/svn/trunk/"
+srcdir = home+"/kernel/kgtp/"
 
 #Get kernel_src and kernel_b
 print("With directory you want to use?")
@@ -110,12 +110,12 @@ def update_patch(tag, patch, arch= "local"):
 		callcmd("git checkout "+tag)
 
 	if have_quilt:
-		callcmd("quilt import ~/kernel/svn/trunk/"+patch)
+		callcmd("quilt import "+srcdir+patch)
 		callcmd("quilt push")
 	#gtp.c
 	os.system("mkdir -p lib/")
 	if patch == "gtp_for_review.patch":
-		os.system("kdiff3 lib/gtp.c ~/kernel/svn/trunk/gtp.c")
+		os.system("kdiff3 lib/gtp.c "+srcdir+"gtp.c")
 		query_continue()
 	else:
 		quilt_add("lib/gtp.c", True, "gtp.c")
@@ -134,13 +134,13 @@ def update_patch(tag, patch, arch= "local"):
 		#buf = fd.write(buf)
 		#fd.close()
 	if patch == "gtp_for_review.patch":
-		os.system("kdiff3 lib/gtp_rb.c ~/kernel/svn/trunk/gtp_rb.c")
+		os.system("kdiff3 lib/gtp_rb.c "+srcdir+"gtp_rb.c")
 		query_continue()
 	else:
 		quilt_add("lib/gtp_rb.c", True, "gtp_rb.c")
 	#doc
 	if patch == "gtp_for_review.patch":
-		callcmd("quilt import ~/kernel/svn/trunk/gtp_doc_for_review.patch")
+		callcmd("quilt import "+srcdir+"gtp_doc_for_review.patch")
 		callcmd("quilt push")
 	os.system("mkdir -p Documentation/gtp/")
 	quilt_add("Documentation/trace/gtp.txt")
@@ -150,7 +150,7 @@ def update_patch(tag, patch, arch= "local"):
 	quilt_add("Documentation/gtp/quickstart.txt", True, "quickstart.txt")
 	#script
 	if patch == "gtp_for_review.patch":
-		callcmd("quilt import ~/kernel/svn/trunk/gtp_script_for_review.patch")
+		callcmd("quilt import "+srcdir+"gtp_script_for_review.patch")
 		callcmd("quilt push")
 	os.system("mkdir -p scripts/gtp/add-ons/")
 	quilt_add("scripts/getmod.py")
@@ -165,7 +165,7 @@ def update_patch(tag, patch, arch= "local"):
 
 	if have_quilt:
 		if vnum <= version_num ("v2.6.20"):
-			callcmd("quilt import ~/kernel/svn/bak/fix-2.6.18-build.patch")
+			callcmd("quilt import ~/kernel/kgtp-misc/fix-2.6.18-build.patch")
 			callcmd("quilt push")
 		if tag == "taobao":
 			callcmd("quilt import ~/study/kernel/taobao_build.patch")
@@ -187,7 +187,7 @@ def update_patch(tag, patch, arch= "local"):
 		#print "taobao patch need to be test with yourself."
 		#callcmd("diffstat patches/" + patch)
 		query_continue()
-		#callcmd("cp patches/"+patch+" ~/kernel/svn/trunk/")
+		#callcmd("cp patches/"+patch+" "+srcdir)
 		return
 	else:
 		if cmp(arch, "local") == 0:
@@ -225,70 +225,70 @@ def update_patch(tag, patch, arch= "local"):
 		callcmd("diffstat patches/gtp_doc_for_review.patch")
 		callcmd("diffstat patches/gtp_script_for_review.patch")
 	query_continue()
-	callcmd("cp patches/"+patch+" ~/kernel/svn/trunk/")
+	callcmd("cp patches/"+patch+" "+srcdir)
 	if patch == "gtp_for_review.patch":
-		callcmd("cp patches/gtp_doc_for_review.patch ~/kernel/svn/trunk/")
-		callcmd("cp patches/gtp_script_for_review.patch ~/kernel/svn/trunk/")
+		callcmd("cp patches/gtp_doc_for_review.patch "+srcdir)
+		callcmd("cp patches/gtp_script_for_review.patch "+srcdir)
 
-#clear_kernel_src()
-#callcmd("git checkout -f master")
-#callcmd("proxychains git pull")
+clear_kernel_src()
+callcmd("git checkout -f master")
+callcmd("proxychains git pull")
 
-#update_patch("v2.6.18", "gtp_older_to_2.6.19.patch")
-#clear_kernel_src()
+update_patch("v2.6.18", "gtp_older_to_2.6.19.patch")
+clear_kernel_src()
 
-#update_patch("v2.6.19", "gtp_older_to_2.6.19.patch")
-#clear_kernel_src()
+update_patch("v2.6.19", "gtp_older_to_2.6.19.patch")
+clear_kernel_src()
 
-#update_patch("v2.6.20", "gtp_2.6.20_to_2.6.32.patch")
-#clear_kernel_src()
-##ARM support kprobes from 2.6.25
-#update_patch("v2.6.25", "gtp_2.6.20_to_2.6.32.patch", "arm")
-#clear_kernel_src()
+update_patch("v2.6.20", "gtp_2.6.20_to_2.6.32.patch")
+clear_kernel_src()
+#ARM support kprobes from 2.6.25
+update_patch("v2.6.25", "gtp_2.6.20_to_2.6.32.patch", "arm")
+clear_kernel_src()
 
-#update_patch("v2.6.32", "gtp_2.6.20_to_2.6.32.patch", "arm")
-#clear_kernel_src()
-#update_patch("v2.6.32", "gtp_2.6.20_to_2.6.32.patch")
-#clear_kernel_src()
+update_patch("v2.6.32", "gtp_2.6.20_to_2.6.32.patch", "arm")
+clear_kernel_src()
+update_patch("v2.6.32", "gtp_2.6.20_to_2.6.32.patch")
+clear_kernel_src()
 
-#update_patch("v2.6.33", "gtp_2.6.33_to_2.6.38.patch", "arm")
-#clear_kernel_src()
-#update_patch("v2.6.33", "gtp_2.6.33_to_2.6.38.patch")
-#clear_kernel_src()
+update_patch("v2.6.33", "gtp_2.6.33_to_2.6.38.patch", "arm")
+clear_kernel_src()
+update_patch("v2.6.33", "gtp_2.6.33_to_2.6.38.patch")
+clear_kernel_src()
 
-#update_patch("v2.6.38", "gtp_2.6.33_to_2.6.38.patch", "arm")
-#clear_kernel_src()
-#update_patch("v2.6.38", "gtp_2.6.33_to_2.6.38.patch")
-#clear_kernel_src()
+update_patch("v2.6.38", "gtp_2.6.33_to_2.6.38.patch", "arm")
+clear_kernel_src()
+update_patch("v2.6.38", "gtp_2.6.33_to_2.6.38.patch")
+clear_kernel_src()
 
-#update_patch("v2.6.39", "gtp_2.6.39.patch", "arm")
-#clear_kernel_src()
-#update_patch("v2.6.39", "gtp_2.6.39.patch")
-#clear_kernel_src()
+update_patch("v2.6.39", "gtp_2.6.39.patch", "arm")
+clear_kernel_src()
+update_patch("v2.6.39", "gtp_2.6.39.patch")
+clear_kernel_src()
 
-#update_patch("v3.0", "gtp_3.0_to_3.6.patch", "arm")
-#clear_kernel_src()
-#update_patch("v3.0", "gtp_3.0_to_3.6.patch")
-#clear_kernel_src()
+update_patch("v3.0", "gtp_3.0_to_3.6.patch", "arm")
+clear_kernel_src()
+update_patch("v3.0", "gtp_3.0_to_3.6.patch")
+clear_kernel_src()
 
-#update_patch("v3.6", "gtp_3.0_to_3.6.patch", "arm")
-#clear_kernel_src()
-#update_patch("v3.6", "gtp_3.0_to_3.6.patch")
-#clear_kernel_src()
+update_patch("v3.6", "gtp_3.0_to_3.6.patch", "arm")
+clear_kernel_src()
+update_patch("v3.6", "gtp_3.0_to_3.6.patch")
+clear_kernel_src()
 
-#update_patch("v3.7", "gtp_3.7_to_upstream.patch", "arm")
-#clear_kernel_src()
-#update_patch("v3.7", "gtp_3.7_to_upstream.patch")
-#clear_kernel_src()
+update_patch("v3.7", "gtp_3.7_to_upstream.patch", "arm")
+clear_kernel_src()
+update_patch("v3.7", "gtp_3.7_to_upstream.patch")
+clear_kernel_src()
 
-#update_patch("master", "gtp_3.7_to_upstream.patch", "arm")
-#clear_kernel_src()
-#update_patch("master", "gtp_3.7_to_upstream.patch")
-#clear_kernel_src()
+update_patch("master", "gtp_3.7_to_upstream.patch", "arm")
+clear_kernel_src()
+update_patch("master", "gtp_3.7_to_upstream.patch")
+clear_kernel_src()
 
-have_quilt = False
-update_patch("taobao", "gtp_taobao.patch")
-have_quilt = True
+#have_quilt = False
+#update_patch("taobao", "gtp_taobao.patch")
+#have_quilt = True
 
 #update_patch("master", "gtp_for_review.patch")
 #clear_kernel_src()
