@@ -440,11 +440,14 @@ eval "tvariable $p_cc%d",$tmp
 set $tmp=$tmp+1
 end
 tvariable $ignore_error=1
-trace arch_local_irq_disable
+#trace arch_local_irq_disable
+#Find native_irq_disable
+trace irqflags.h:39
   commands
     teval $p_count=$clock
   end
-trace arch_local_irq_enable if ($p_count && $p_cc < $clock - $p_count)
+#Find the native_irq_enable
+trace irqflags.h:44 if ($p_count && $p_cc < $clock - $p_count)
   commands
     teval $p_cc = $clock - $p_count
     collect $bt
@@ -590,9 +593,10 @@ trace *1
     collect $watch_prev_val
   end
 #Need set in get_empty_filp:spin_lock_init(&f->f_lock);
-list get_empty_filp
+#list get_empty_filp
 #trace 140
-trace 135
+#trace 135
+trace file_table.c:140
   commands
     teval $watch_set_addr=1
     teval $watch_size=4
@@ -600,8 +604,9 @@ trace 135
     teval $watch_size=8
     teval $watch_start=&(f->f_op)
   end
-list fput
-trace 309
+#list fput
+#trace 309
+trace file_table.c:307
   commands
     teval $watch_stop=&(file->f_pos)
     teval $watch_stop=&(file->f_op)
@@ -641,7 +646,7 @@ display $cpu_id
 display $step_count
 monitor replay
 tfind -1
-b
+b security_file_permission
 
 trace do_IRQ
 passcount 1
