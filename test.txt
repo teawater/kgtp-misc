@@ -37,7 +37,7 @@ tstop
 tfind
 
 #User space attach
-gcc -g -static ~/kernel/svn/bak/test.c
+gcc -g -static ~/kernel/kgtp-misc/test.c
 ftp 172.20.0.12
 binary
 put a.out
@@ -73,7 +73,7 @@ kill xxx
 
 #Offline debug
 gdb ./vmlinux
-target remote | perl ~/kernel/svn/trunk/getgtprsp.pl
+target remote | perl ~/kernel/kgtp/getgtprsp.pl
 trace vfs_write
 actions
 collect $bt
@@ -127,13 +127,13 @@ set pagination on
 set remotetimeout 1024
 tstart
 tstop
-source ~/kernel/svn/bak/show/20121110/slow.py
-!cat ~/kernel/svn/bak/show/20121110/slow.py
+source ~/kernel/kgtp-misc/show/20121110/slow.py
+!cat ~/kernel/kgtp-misc/show/20121110/slow.py
 
 #Output directly
 tfind -1
 k
-target remote | perl /home/teawater/kernel/svn/trunk/getgtprsp.pl
+target remote | perl /home/teawater/kernel/kgtp/getgtprsp.pl
 actions
 teval $p_cc = $clock - $p_count
 teval $printk_level=0
@@ -384,7 +384,7 @@ tstop
 tfind
 
 #User space attach
-gcc -g ~/kernel/svn/bak/test.c
+gcc -g ~/kernel/kgtp-misc/test.c
 ./a.out
 gtpe
 add-inferior
@@ -415,15 +415,15 @@ kill xxx
 
 #Offline debug
 gdb ./vmlinux
-target remote | perl /home/teawater/kernel/svn/trunk/getgtprsp.pl
+target remote | perl /home/teawater/kernel/kgtp/getgtprsp.pl
 trace vfs_readdir
 actions
 collect $bt
 end
 tstart
 tstop
-sudo ~/kernel/svn/trunk/putgtprsp gtpstart
-sudo ~/kernel/svn/trunk/putgtprsp gtpstop
+sudo ~/kernel/kgtp/putgtprsp gtpstart
+sudo ~/kernel/kgtp/putgtprsp gtpstop
 target tfile /sys/kernel/debug/gtpframe
 
 #TSV
@@ -453,12 +453,12 @@ trace arch_local_irq_enable if ($p_count && $p_cc < $clock - $p_count)
   end
 enable
 set pagination on
-source /home/teawater/kernel/svn/bak/show/20121110/slow.py
+source /home/teawater/kernel/kgtp-misc/show/20121110/slow.py
 
 #Output directly
 tfind -1
 k
-target remote | perl /home/teawater/kernel/svn/trunk/getgtprsp.pl
+target remote | perl /home/teawater/kernel/kgtp/getgtprsp.pl
 actions
 teval $p_cc = $clock - $p_count
 teval $printk_level=0
@@ -468,8 +468,8 @@ teval $p_count=0
 end
 tstart
 tstop
-sudo ~/kernel/svn/trunk/putgtprsp gtpstart
-sudo ~/kernel/svn/trunk/putgtprsp gtpstop
+sudo ~/kernel/kgtp/putgtprsp gtpstart
+sudo ~/kernel/kgtp/putgtprsp gtpstop
 tail -f /var/log/syslog
 
 sudo su
