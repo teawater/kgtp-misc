@@ -53,14 +53,18 @@ p c
 
 #User space trace
 inferior 1
+x vfs_write
 ps -e
+p $inferior_pid
 trace vfs_write if ($current_task_pid == xxx)
 actions
+teval $inferior_pid=80
 collect $bt
 end
 trace vfs_write if ($current_task_pid == xxx)
 inferior 2
 actions
+teval $inferior_pid=80
 collect $current
 collect $bt
 collect c
@@ -97,6 +101,12 @@ echo scan > /sys/kernel/debug/kmemleak
 echo clear > /sys/kernel/debug/kmemleak
 insmod gtp.ko
 
+set $tmp=0
+while $tmp<$cpu_number
+eval "tvariable $p_cc%d",$tmp
+set $tmp=$tmp+1
+end
+
 #TSV
 nc -l -p 8888 < /sys/kernel/debug/gtp >/sys/kernel/debug/gtp &
 gdb ./vmlinux
@@ -105,21 +115,20 @@ set pagination off
 tvariable $bt=1024
 tvariable $p_count
 tvariable $p_cc
-set $tmp=0
-while $tmp<$cpu_number
-eval "tvariable $p_cc%d",$tmp
-set $tmp=$tmp+1
-end
+tvariable $p_pc
+
 tvariable $ignore_error=1
 trace raw_local_irq_disable
   commands
     teval $p_count=$clock
+    teval $p_pc=(uint64_t)$rip
   end
 trace raw_local_irq_enable if ($p_count && $p_cc < $clock - $p_count)
   commands
     teval $p_cc = $clock - $p_count
     collect $bt
     collect $p_cc
+    collect $p_pc
     teval $p_count=0
   end
 enable
@@ -130,6 +139,28 @@ tstop
 source ~/kernel/kgtp-misc/show/20121110/slow.py
 !cat ~/kernel/kgtp-misc/show/20121110/slow.py
 
+set logging file ~/tmp/t
+set logging overwrite on
+set logging redirect on
+set logging on
+set pagination off
+
+info tracepoints
+
+set logging off
+set pagination on
+
+p $rip
+!cat ~/tmp/t | grep 0xffffffff8104bbb3
+x $p_pc
+!cat ~/tmp/t | grep 0xffffffff814c12a4
+monitor disable 0xffffffff8104bbb3
+monitor disable 0xffffffff814c12a4
+monitor disable
+tstart
+tstop
+source ~/kernel/kgtp-misc/show/20121110/slow.py
+
 #Output directly
 tfind -1
 k
@@ -139,6 +170,7 @@ teval $p_cc = $clock - $p_count
 teval $printk_level=0
 collect $dump_stack
 collect $p_cc
+collect $p_pc
 teval $p_count=0
 end
 tstart

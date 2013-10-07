@@ -12,7 +12,7 @@ p *((struct module *)((char *)modules->next->next - ((size_t) &(((struct module 
 #Access DEFINE_PER_CPU(irq_cpustat_t, irq_stat) ____cacheline_internodealigned_in_smp;
 p *(irq_cpustat_t *)(__per_cpu_offset[0]+(uint64_t)(&irq_stat))
 p *(irq_cpustat_t *)(__per_cpu_offset[1]+(uint64_t)(&irq_stat))
-
+---------------------------------------------------------------------------------
 Show 2:
 trace vfs_read
 actions
@@ -28,6 +28,10 @@ tstop
 tfind
 tfind tracepoint 2
 quit
+---------------------------------------------------------------------------------
+
+
+
 
 Show 3:
 #GDB attach
@@ -48,7 +52,7 @@ attach xxx
 p osd_level
 #Change 选项 屏幕显示
 p osd_level
-
+---------------------------------------------------------------------------------
 Show 4:
 trace do_poll if ($current_task_pid == xxx)
 actions
@@ -67,7 +71,11 @@ tstop
 p osd_level
 quit 
 
-Show 5:
+
+
+
+---------------------------------------------------------------------------------
+Show 6:
 #Use gdb port in andorid emulator
 /home/teawater/soft/android/android-sdk-linux/tools/emulator -verbose -kernel /home/teawater/soft/android/bg/arch/arm/boot/zImage -avd a43 -qemu -gdb tcp::12345,ipv4
 gdb /home/teawater/soft/android/bg/vmlinux
@@ -99,8 +107,8 @@ tfind
 bt
 kill
 d
-
-Show 6:
+---------------------------------------------------------------------------------
+Show 7:
 gdb /home/teawater/soft/android/bg/vmlinux
 target remote | perl /home/teawater/kernel/svn/trunk/getgtprsp.pl
 trace handle_IRQ_event
@@ -143,8 +151,8 @@ quit
 sudo umount ~/mnt/
 cd ~/kernel/svn/trunk
 make clean
-
-Show 7:
+---------------------------------------------------------------------------------
+Show 8:
 cat plugin_example.c
 make clean
 make P=1
@@ -165,39 +173,70 @@ tstart
 tstop
 quit
 sudo rmmod plugin_example
+---------------------------------------------------------------------------------
 
-Show 8:
+
+
+Show 9:
 sudo gdb /usr/lib/debug/boot/vmlinux-$(uname -r)
 target remote /sys/kernel/debug/gtp
+
+!~/kernel/kgtp/getmod > ~/tmp/m
+source ~/tmp/m
 set pagination off
 tvariable $bt=1024
 tvariable $p_count
+
 tvariable $p_cc
-set $tmp=0
-while $tmp<$cpu_number
-eval "tvariable $p_cc%d",$tmp
-set $tmp=$tmp+1
-end
+tvariable $p_pc
+
 tvariable $ignore_error=1
+
 trace arch_local_irq_disable
   commands
     teval $p_count=$clock
+    teval $p_pc=(uint64_t)$rip
   end
 trace arch_local_irq_enable if ($p_count && $p_cc < $clock - $p_count)
   commands
     teval $p_cc = $clock - $p_count
     collect $bt
     collect $p_cc
+    collect $p_pc
     teval $p_count=0
   end
+
+trace arch_local_save_flags
+  commands
+    teval $p_count=$clock
+    teval $p_pc=(uint64_t)$rip
+  end
+trace arch_local_irq_restore if ($p_count && $p_cc < $clock - $p_count)
+  commands
+    teval $p_cc = $clock - $p_count
+    collect $bt
+    collect $p_cc
+    collect $p_pc
+    teval $p_count=0
+  end
+
 enable
 set pagination on
-
-Show 9:
-!cat ~/kernel/svn/bak/show/introduce/slow.py
-source ~/kernel/svn/bak/show/introduce/slow.py
-
+---------------------------------------------------------------------------------
 Show 10:
+!cat ~/kernel/svn/bak/show/introduce/slow.py
+source ~/kernel/kgtp-misc/show/introduce/slow.py
+
+
+p $rip
+x $p_pc
+monitor disable 0xffffffff8136f03d
+monitor disable 0xffffffff8136f0d9
+monitor disable
+
+
+---------------------------------------------------------------------------------
+Show 11:
 sudo gdb /usr/lib/debug/boot/vmlinux-$(uname -r)
 target remote /sys/kernel/debug/gtp
 trace *&jiffies_64
@@ -216,8 +255,8 @@ display $watch_val
 display $watch_prev_val
 tfind
 d
-
-Show 11:
+---------------------------------------------------------------------------------
+Show 12:
 set pagination off
 trace *1
   commands
@@ -249,12 +288,12 @@ tstop
 display $cpu_id
 display $watch_val
 display $watch_prev_val
+---------------------------------------------------------------------------------
+Show 13:
 
-Show 12:
-d
-undisplay
 trace vfs_read
 passcount 1
+
   commands
     collect $bt
     collect $step_count
@@ -263,8 +302,11 @@ passcount 1
       collect $step_count
     end
   end
-display $cpu_id
+
 display $step_count
+
+tfind
+
 monitor replay
 tfind -1
 n
