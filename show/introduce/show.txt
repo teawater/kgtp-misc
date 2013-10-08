@@ -174,19 +174,17 @@ tstop
 quit
 sudo rmmod plugin_example
 ---------------------------------------------------------------------------------
-
-
-
 Show 9:
 sudo gdb /usr/lib/debug/boot/vmlinux-$(uname -r)
 target remote /sys/kernel/debug/gtp
 
 !~/kernel/kgtp/getmod > ~/tmp/m
 source ~/tmp/m
+
 set pagination off
 tvariable $bt=1024
-tvariable $p_count
 
+tvariable $p_count
 tvariable $p_cc
 tvariable $p_pc
 
@@ -227,14 +225,14 @@ Show 10:
 !cat ~/kernel/svn/bak/show/introduce/slow.py
 source ~/kernel/kgtp-misc/show/introduce/slow.py
 
-
 p $rip
 x $p_pc
 monitor disable 0xffffffff8136f03d
 monitor disable 0xffffffff8136f0d9
 monitor disable
-
-
+tstart
+tstop
+source ~/kernel/kgtp-misc/show/introduce/slow.py
 ---------------------------------------------------------------------------------
 Show 11:
 sudo gdb /usr/lib/debug/boot/vmlinux-$(uname -r)
