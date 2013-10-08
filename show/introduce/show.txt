@@ -32,7 +32,6 @@ quit
 
 
 
-
 Show 3:
 #GDB attach
 ps -e | grep mplayer
@@ -41,12 +40,11 @@ p osd_level
 #Change 选项 屏幕显示
 p osd_level
 quit
+
 #KGTP
-sudo gdb /usr/lib/debug/boot/vmlinux-$(uname -r)
+sudo gdb
 target extended-remote /sys/kernel/debug/gtp
-add-inferior
-inferior 2
-file /home/teawater/soft/mplayer/mplayer_bak/mplayer
+file /home/teawater/mplayer/MPlayer-1.1.1/mplayer
 !ps -e | grep mplayer
 attach xxx
 p osd_level
@@ -54,22 +52,42 @@ p osd_level
 p osd_level
 ---------------------------------------------------------------------------------
 Show 4:
+trace draw_image
+actions 
+collect $bt
+end
+tfind
+#再打开一个SMPLAYER
+tstart
+tstop
+display $current_task_pid
+tfind
+---------------------------------------------------------------------------------
+Show 5:
+sudo gdb /usr/lib/debug/lib/modules/$(uname -r)/vmlinux
+target extended-remote /sys/kernel/debug/gtp
+add-inferior
+inferior 2
+file /home/teawater/mplayer/MPlayer-1.1.1/mplayer
+!ps -e | grep mplayer
+attach xxx
+p osd_level
+#Change 选项 屏幕显示
+p osd_level
+inferior 1
 trace do_poll if ($current_task_pid == xxx)
 actions
 collect $bt
 end
 trace do_poll if ($current_task_pid == xxx)
-inferior 2
 actions
 collect $current
 collect $bt
-collect osd_level
 end
 tvariable $bt=1024
 tstart
 tstop
-p osd_level
-quit 
+
 
 
 
