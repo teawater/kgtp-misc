@@ -29,19 +29,17 @@ tfind
 tfind tracepoint 2
 quit
 ---------------------------------------------------------------------------------
-
-
-
 Show 3:
 #GDB attach
 ps -e | grep mplayer
-sudo gdb -p xxx
+gdb -p xxx
 p osd_level
 #Change 选项 屏幕显示
 p osd_level
 quit
 
 #KGTP
+uname -r
 sudo gdb
 target extended-remote /sys/kernel/debug/gtp
 file /home/teawater/mplayer/MPlayer-1.1.1/mplayer
@@ -64,34 +62,29 @@ display $current_task_pid
 tfind
 ---------------------------------------------------------------------------------
 Show 5:
-sudo gdb /usr/lib/debug/lib/modules/$(uname -r)/vmlinux
+gdbk
 target extended-remote /sys/kernel/debug/gtp
 add-inferior
 inferior 2
-file /home/teawater/mplayer/MPlayer-1.1.1/mplayer
+file /usr/bin/mplayer
 !ps -e | grep mplayer
-attach xxx
+attach 14489
 p osd_level
 #Change 选项 屏幕显示
 p osd_level
 inferior 1
-trace do_poll if ($current_task_pid == xxx)
+trace do_poll if ($current_task_pid == 14489)
 actions
 collect $bt
 end
-trace do_poll if ($current_task_pid == xxx)
+trace do_poll if ($current_task_pid == 14489)
 actions
 collect $current
 collect $bt
 end
-tvariable $bt=1024
+tvariable $bt=2048
 tstart
 tstop
-
-
-
-
-
 ---------------------------------------------------------------------------------
 Show 6:
 #Use gdb port in andorid emulator
