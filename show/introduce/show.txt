@@ -320,4 +320,7 @@ monitor replay
 tfind -1
 n
 rn
+s
+rs
+reverse-finish
 b
