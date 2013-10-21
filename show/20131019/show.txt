@@ -1,0 +1,326 @@
+Show 1:
+cd kernel/svn/trunk/
+uname -r
+make
+sudo insmod gtp.ko
+sudo gdb /usr/lib/debug/boot/vmlinux-$(uname -r)
+target remote /sys/kernel/debug/gtp
+p jiffies_64
+#Access static LIST_HEAD(modules)
+p *((struct module *)((char *)modules->next - ((size_t) &(((struct module *)0)->list))))
+p *((struct module *)((char *)modules->next->next - ((size_t) &(((struct module *)0)->list))))
+#Access DEFINE_PER_CPU(irq_cpustat_t, irq_stat) ____cacheline_internodealigned_in_smp;
+p *(irq_cpustat_t *)(__per_cpu_offset[0]+(uint64_t)(&irq_stat))
+p *(irq_cpustat_t *)(__per_cpu_offset[1]+(uint64_t)(&irq_stat))
+---------------------------------------------------------------------------------
+Show 2:
+trace vfs_read
+actions
+collect $bt
+end
+trace do_IRQ
+actions
+collect $bt
+end
+info tracepoints
+tstart
+tstop
+tfind
+tfind tracepoint 2
+quit
+---------------------------------------------------------------------------------
+Show 3:
+#GDB attach
+ps -e | grep mplayer
+gdb -p xxx
+p osd_level
+#Change 选项 屏幕显示
+p osd_level
+quit
+
+#KGTP
+uname -r
+sudo gdb
+target extended-remote /sys/kernel/debug/gtp
+file /home/teawater/mplayer/MPlayer-1.1.1/mplayer
+!ps -e | grep mplayer
+attach xxx
+p osd_level
+#Change 选项 屏幕显示
+p osd_level
+---------------------------------------------------------------------------------
+Show 4:
+trace draw_image
+actions 
+collect $bt
+end
+tfind
+#再打开一个SMPLAYER
+tstart
+tstop
+display $current_task_pid
+tfind
+---------------------------------------------------------------------------------
+Show 5:
+gdbk
+target extended-remote /sys/kernel/debug/gtp
+add-inferior
+inferior 2
+file /usr/bin/mplayer
+!ps -e | grep mplayer
+attach 14489
+p osd_level
+#Change 选项 屏幕显示
+p osd_level
+inferior 1
+trace do_poll if ($current_task_pid == 14489)
+actions
+collect $bt
+end
+trace do_poll if ($current_task_pid == 14489)
+actions
+collect $current
+collect $bt
+end
+tvariable $bt=2048
+tstart
+tstop
+---------------------------------------------------------------------------------
+Show 6:
+#Use gdb port in andorid emulator
+/home/teawater/soft/android/android-sdk-linux/tools/emulator -verbose -kernel /home/teawater/soft/android/bg/arch/arm/boot/zImage -avd a43 -qemu -gdb tcp::12345,ipv4
+gdb /home/teawater/soft/android/bg/vmlinux
+target remote :12345
+detach
+#KGTP
+cd kernel/svn/trunk/
+make clean
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- KERNELDIR=/home/teawater/soft/android/bg/
+sudo adb shell mount -o rw,remount /
+sudo adb push gtp.ko /
+sudo adb shell insmod /gtp.ko
+sudo adb shell mount -t sysfs none /sys/
+sudo adb shell mount -t debugfs none /sys/kernel/debug/
+adb forward tcp:1234 tcp:1234
+adb shell "nc -l -p 1234 </sys/kernel/debug/gtp >/sys/kernel/debug/gtp"
+gdb /home/teawater/soft/android/bg/vmlinux
+target remote :1234
+p jiffies_64
+trace vfs_read
+actions
+collect $bt
+end
+tvariable $bt=128
+tstart
+tstatus
+tstop
+tfind
+bt
+kill
+d
+---------------------------------------------------------------------------------
+Show 7:
+gdb /home/teawater/soft/android/bg/vmlinux
+target remote | perl /home/teawater/kernel/svn/trunk/getgtprsp.pl
+trace handle_IRQ_event
+actions
+collect $dump_stack
+collect $bt
+end
+tvariable $bt=128
+tstart
+tstop
+quit
+sudo mount -o loop /home/teawater/.android/avd/a43.avd/sdcard.img ~/mnt/
+sudo cp gtpstart ~/mnt/
+sudo cp gtpstop ~/mnt/
+sudo cp gtp.ko ~/mnt/
+sudo umount ~/mnt/
+cat /home/teawater/soft/android/android-sdk-linux/tools/emulator -verbose -kernel /home/teawater/soft/android/bg/arch/arm/boot/zImage -avd a43
+adb shell
+mount -o rw,remount /
+cat /system/bin/ash > /ash
+chmod 4755 /ash
+#Open terminal
+/ash
+cd /mnt/sdcard/
+cat kgtp
+#insmod gtp.ko
+#mount -t sysfs none /sys/
+#mount -t debugfs none /sys/kernel/debug/
+sh kgtp
+cat gtpstart > /sys/kernel/debug/gtp
+adb shell cat /proc/kmsg
+cat gtpstop > /sys/kernel/debug/gtp
+cat /sys/kernel/debug/gtpframe > ./gtpframe
+ls ./gtpframe
+sync
+sudo mount -o loop /home/teawater/.android/avd/a43.avd/sdcard.img ~/mnt/
+gdb /home/teawater/soft/android/bg/vmlinux
+target tfile ~/mnt/gtpframe
+quit
+sudo umount ~/mnt/
+cd ~/kernel/svn/trunk
+make clean
+---------------------------------------------------------------------------------
+Show 8:
+cat plugin_example.c
+make clean
+make P=1
+lsmod
+sudo insmod plugin_example.ko
+tail -f /var/log/syslog
+sudo gdb /usr/lib/debug/boot/vmlinux-$(uname -r)
+target remote /sys/kernel/debug/gtp
+info tvariables
+!cat /proc/kallsyms
+trace vfs_readdir
+actions
+teval $test3=(int64_t)$rip
+teval $test3=(int64_t)0x...
+end
+tstart
+!ls
+tstop
+quit
+sudo rmmod plugin_example
+---------------------------------------------------------------------------------
+Show 9:
+sudo gdb /usr/lib/debug/boot/vmlinux-$(uname -r)
+target remote /sys/kernel/debug/gtp
+
+!~/kernel/kgtp/getmod > ~/tmp/m
+source ~/tmp/m
+
+set pagination off
+tvariable $bt=1024
+
+tvariable $p_count
+tvariable $p_cc
+tvariable $p_pc
+
+tvariable $ignore_error=1
+
+trace arch_local_irq_disable
+  commands
+    teval $p_count=$clock
+    teval $p_pc=(uint64_t)$rip
+  end
+trace arch_local_irq_enable if ($p_count && $p_cc < $clock - $p_count)
+  commands
+    teval $p_cc = $clock - $p_count
+    collect $bt
+    collect $p_cc
+    collect $p_pc
+    teval $p_count=0
+  end
+
+trace arch_local_save_flags
+  commands
+    teval $p_count=$clock
+    teval $p_pc=(uint64_t)$rip
+  end
+trace arch_local_irq_restore if ($p_count && $p_cc < $clock - $p_count)
+  commands
+    teval $p_cc = $clock - $p_count
+    collect $bt
+    collect $p_cc
+    collect $p_pc
+    teval $p_count=0
+  end
+
+enable
+set pagination on
+---------------------------------------------------------------------------------
+Show 10:
+!cat ~/kernel/svn/bak/show/introduce/slow.py
+source ~/kernel/kgtp-misc/show/introduce/slow.py
+
+p $rip
+x $p_pc
+monitor disable 0xffffffff8136f03d
+monitor disable 0xffffffff8136f0d9
+monitor disable
+tstart
+tstop
+source ~/kernel/kgtp-misc/show/introduce/slow.py
+---------------------------------------------------------------------------------
+Show 11:
+sudo gdb /usr/lib/debug/boot/vmlinux-$(uname -r)
+target remote /sys/kernel/debug/gtp
+trace *&jiffies_64
+  commands
+    teval $watch_static=1
+    teval $watch_type=1
+    teval $watch_size=8
+    collect $watch_val
+    collect $watch_prev_val
+    collect $bt
+  end
+tstart
+tstop
+display $cpu_id
+display $watch_val
+display $watch_prev_val
+tfind
+d
+---------------------------------------------------------------------------------
+Show 12:
+set pagination off
+trace *1
+  commands
+    teval $watch_static=0
+    teval $watch_type=1
+    teval $watch_size=8
+    collect $bt
+    collect $watch_addr
+    collect $watch_val
+    collect $watch_prev_val
+  end
+list get_empty_filp
+trace 135
+  commands
+    teval $watch_set_addr=1
+    teval $watch_size=4
+    teval $watch_start=&(f->f_pos)
+    teval $watch_size=8
+    teval $watch_start=&(f->f_op)
+  end
+trace file_sb_list_del
+  commands
+    teval $watch_stop=&(file->f_pos)
+    teval $watch_stop=&(file->f_op)
+  end
+tstart
+cat gtp.ko
+tstop
+display $cpu_id
+display $watch_val
+display $watch_prev_val
+---------------------------------------------------------------------------------
+Show 13:
+
+trace vfs_read
+passcount 1
+
+  commands
+    collect $bt
+    collect $step_count
+    while-stepping 2000
+      collect $bt
+      collect $step_count
+    end
+  end
+
+display $step_count
+
+tfind
+
+monitor replay
+tfind -1
+n
+rn
+s
+rs
+reverse-finish
+b
