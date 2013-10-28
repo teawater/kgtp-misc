@@ -1,101 +1,6 @@
----
- arch/arm/include/asm/gtp.h  |   24 +
- arch/mips/include/asm/gtp.h |   56 ++
- arch/x86/include/asm/gtp.h  |   92 ++++
- kernel/Makefile             |    2 
- kernel/gtp.c                |  892 ++++++++++++++++++++++++++++++++++++++++++++
- lib/Kconfig.debug           |   12 
- 6 files changed, 1078 insertions(+)
-
---- /dev/null
-+++ b/arch/arm/include/asm/gtp.h
-@@ -0,0 +1,24 @@
-+#ifndef _ASM_ARM_GTP_H_
-+#define _ASM_ARM_GTP_H_
-+
-+#define GTP_REG_ASCII_SIZE	336
-+
-+static inline void gtp_regs2ascii(struct pt_regs *regs, char *buf)
-+{
-+	int	i;
-+
-+	for (i = 0; i < 16; i++) {
-+		sprintf(buf, "%08lx", (unsigned long) ntohl(regs->uregs[i]));
-+		buf += 8;
-+	}
-+
-+	/* f0-f7 fps */
-+	memset(buf, '0', 200);
-+	buf += 200;
-+
-+	sprintf(buf, "%08lx",
-+		 (unsigned long) ntohl(regs->uregs[16]));
-+	buf += 8;
-+}
-+
-+#endif
---- /dev/null
-+++ b/arch/mips/include/asm/gtp.h
-@@ -0,0 +1,56 @@
-+#ifndef _ASM_MIPS_GTP_H_
-+#define _ASM_MIPS_GTP_H_
-+
-+#ifdef CONFIG_32BIT
-+#define GTP_REG_ASCII_SIZE	304
-+#else
-+#define GTP_REG_ASCII_SIZE	608
-+#endif
-+
-+#define GTP_SP_NUM		29
-+
-+static inline void gtp_regs2ascii(struct pt_regs *regs, char *buf)
-+{
-+#ifdef CONFIG_32BIT
-+#define OUTFORMAT	"%08lx"
-+#define REGSIZE		8
-+#define SWAB(a)		ntohl(a)
-+#else
-+#define OUTFORMAT	"%016lx"
-+#define REGSIZE		16
-+#define SWAB(a)		be64_to_cpu(a)
-+#endif
-+	{
-+		int	i;
-+
-+		for (i = 0; i < 32; i++) {
-+			sprintf(buf, OUTFORMAT,
-+				 (unsigned long) SWAB(regs->regs[i]));
-+			buf += REGSIZE;
-+		}
-+	}
-+
-+	sprintf(buf, OUTFORMAT,
-+		 (unsigned long) SWAB(regs->cp0_status));
-+	buf += REGSIZE;
-+	sprintf(buf, OUTFORMAT,
-+		 (unsigned long) SWAB(regs->lo));
-+	buf += REGSIZE;
-+	sprintf(buf, OUTFORMAT,
-+		 (unsigned long) SWAB(regs->hi));
-+	buf += REGSIZE;
-+	sprintf(buf, OUTFORMAT,
-+		 (unsigned long) SWAB(regs->cp0_badvaddr));
-+	buf += REGSIZE;
-+	sprintf(buf, OUTFORMAT,
-+		 (unsigned long) SWAB(regs->cp0_cause));
-+	buf += REGSIZE;
-+	sprintf(buf, OUTFORMAT,
-+		 (unsigned long) SWAB(regs->cp0_epc));
-+	buf += REGSIZE;
-+#undef OUTFORMAT
-+#undef REGSIZE
-+#undef SWAB
-+}
-+
-+#endif
 --- /dev/null
 +++ b/arch/x86/include/asm/gtp.h
-@@ -0,0 +1,92 @@
+@@ -0,0 +1,104 @@
 +#ifndef _ASM_X86_GTP_H_
 +#define _ASM_X86_GTP_H_
 +
@@ -187,12 +92,24 @@
 +#endif
 +}
 +
++static inline void gtp_copy_and_adjuest_regs(struct pt_regs *dest,
++					     struct pt_regs *src)
++{
++	memcpy(dest, src, sizeof(struct pt_regs));
++
++#ifdef CONFIG_X86_32
++	dest->sp = (unsigned long)&src->sp;
++#endif	/* CONFIG_X86_32 */
++
++	dest->ip -= 1;
++}
++
 +#endif
 --- a/kernel/Makefile
 +++ b/kernel/Makefile
-@@ -108,6 +108,8 @@ obj-$(CONFIG_PADATA) += padata.o
- obj-$(CONFIG_CRASH_DUMP) += crash_dump.o
+@@ -112,6 +112,8 @@ obj-$(CONFIG_CRASH_DUMP) += crash_dump.o
  obj-$(CONFIG_JUMP_LABEL) += jump_label.o
+ obj-$(CONFIG_CONTEXT_TRACKING) += context_tracking.o
  
 +obj-$(CONFIG_GTP) += gtp.o
 +
@@ -201,7 +118,7 @@
  # config_data.h contains the same information as ikconfig.h but gzipped.
 --- /dev/null
 +++ b/kernel/gtp.c
-@@ -0,0 +1,892 @@
+@@ -0,0 +1,877 @@
 +/*
 + * KGTP is a realtime and lightweight Linux debugger and tracer.
 + * It makes Linux Kernel supply a GDB remote debug interface.
@@ -220,7 +137,7 @@
 + * along with this program; if not, write to the Free Software
 + * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 + *
-+ * Copyright(C) KGTP team (https://code.google.com/p/kgtp/), 2010, 2011, 2012
++ * Copyright(C) KGTP team (kgtp.googlecode.com), 2010-2013
 + *
 + */
 +
@@ -292,7 +209,6 @@
 +
 +static int			gtp_start;
 +
-+static int			gtp_disconnected_tracing;
 +static int			gtp_circular;
 +
 +/* This spin_lock protects the gtp_frame.  */
@@ -329,7 +245,7 @@
 +
 +	if (gtp_frame_is_circular) {
 +		/* Release some frame entry to get some place.
-+		   XXX:  When support new frame type, need add new handler
++		   When support new frame type, need add new handler
 +		   to switch.  */
 +		while (gtp_frame_w_start + size > gtp_frame_r_start) {
 +			switch (gtp_frame_r_start[0]) {
@@ -366,13 +282,7 @@
 +	*next = tmp;
 +	tmp[0] = 'r';
 +	freg = (struct gtp_frame_reg *) (tmp + 1);
-+	memcpy(&freg->regs, regs, sizeof(struct pt_regs));
-+#ifdef CONFIG_X86_32
-+	freg->regs.sp = (unsigned long)&regs->sp;
-+#endif	/* CONFIG_X86_32 */
-+#ifdef CONFIG_X86
-+	freg->regs.ip -= 1;
-+#endif	/* CONFIG_X86 */
++	gtp_copy_and_adjuest_regs(&freg->regs, regs);
 +	freg->next = NULL;
 +
 +	return &freg->next;
@@ -577,7 +487,7 @@
 +		if (pkg[0] == 'S') {
 +			pkg++;
 +			step_action = 1;
-+			/* XXX: Still not support step.  */
++			/* Do not support step now.  */
 +			return 1;
 +		}
 +		while (pkg[0]) {
@@ -585,16 +495,17 @@
 +
 +			switch (pkg[0]) {
 +			case 'R':
-+				/* XXX: reg_mask is ignore.  */
++				/* reg_mask is ignore because buffer just
++				   can record all regs.  */
 +				ae = gtp_action_alloc(pkg[0]);
 +				if (!ae)
 +					return -ENOMEM;
 +				pkg++;
 +				ae->type = 'r';
-+				ae->u.reg_mask = simple_strtoull(pkg, &pkg, 16);
++				ae->u.reg_mask = simple_strtoull(pkg, &pkg,
++								 16);
 +				break;
 +			default:
-+				/* XXX: Not support.  */
 +				return 1;
 +			}
 +
@@ -609,17 +520,9 @@
 +
 +static int gtp_gdbrsp_qtdisconnected(char *pkg)
 +{
-+	ULONGEST setting;
++	/* Doesn't support disconnected-tracing.  */
 +
-+	if (gtp_start)
-+		return -EBUSY;
-+	if (pkg[0] == '\0')
-+		return -EINVAL;
-+
-+	setting = simple_strtoull(pkg, NULL, 16);
-+	gtp_disconnected_tracing = (int) setting;
-+
-+	return 0;
++	return 1;
 +}
 +
 +static int gtp_gdbrsp_qtbuffer(char *pkg)
@@ -694,13 +597,13 @@
 +	if (gtp_start)
 +		return -EBUSY;
 +
-+	if (strncmp(pkg, "pc:", 3) == 0)	/* XXX */
++	if (strncmp(pkg, "pc:", 3) == 0)	/* Not support.  */
 +		return 1;
-+	else if (strncmp(pkg, "tdp:", 4) == 0)	/* XXX */
++	else if (strncmp(pkg, "tdp:", 4) == 0)	/* Not support.  */
 +		return 1;
-+	else if (strncmp(pkg, "range:", 6) == 0)	/* XXX */
++	else if (strncmp(pkg, "range:", 6) == 0)	/* Not support.  */
 +		return 1;
-+	else if (strncmp(pkg, "outside:", 8) == 0)	/* XXX */
++	else if (strncmp(pkg, "outside:", 8) == 0)	/* Not support.  */
 +		return 1;
 +	else {
 +		ULONGEST		num;
@@ -908,7 +811,6 @@
 +	down(&gtp_rw_lock);
 +	vfree(gtp_rw_buf);
 +
-+	/* XXX:  not handle gtp_disconnected_tracing.  */
 +	gtp_gdbrsp_qtstop();
 +	gtp_gdbrsp_qtinit();
 +	vfree(gtp_frame);
@@ -1096,21 +998,23 @@
 +MODULE_LICENSE("GPL");
 --- a/lib/Kconfig.debug
 +++ b/lib/Kconfig.debug
-@@ -1307,6 +1307,18 @@ config ASYNC_RAID6_TEST
- 
- 	  If unsure, say N.
+@@ -1560,6 +1560,20 @@ config DMA_API_DEBUG
+ 	  This option causes a performance degredation.  Use only if you want
+ 	  to debug device drivers. If unsure, say N.
  
 +config GTP
-+	tristate "GDB tracepoint support"
-+	depends on X86 || ARM || MIPS
++	tristate "KGTP"
++	depends on X86
 +	select KPROBES
 +	select DEBUG_FS
 +	---help---
-+	  KGTP is a realtime and lightweight Linux debugger and tracer.
++	  KGTP is a flexible, lightweight and realtime Linux (include
++	  Android) debugger and tracer.
 +	  It makes Linux Kernel supply a GDB remote debug interface.
-+	  Then GDB in current machine can debug and trace Linux through
-+	  GDB tracepoint and some other functions without stopping the
-+	  Linux Kernel.
++	  Then GDB in current machine or remote machine can debug and
++	  trace Linux kernel and user space program through GDB tracepoint
++	  and some other functions without stopping the Linux Kernel.
++	  http://kgtp.googlecode.com/
 +
  source "samples/Kconfig"
  
