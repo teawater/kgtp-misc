@@ -118,7 +118,7 @@
  # config_data.h contains the same information as ikconfig.h but gzipped.
 --- /dev/null
 +++ b/kernel/gtp.c
-@@ -0,0 +1,877 @@
+@@ -0,0 +1,878 @@
 +/*
 + * KGTP is a realtime and lightweight Linux debugger and tracer.
 + * It makes Linux Kernel supply a GDB remote debug interface.
@@ -977,8 +977,9 @@
 +
 +static int __init gtp_init(void)
 +{
-+	gtp_dir = debugfs_create_file("gtp", S_IFIFO | S_IRUSR | S_IWUSR, NULL,
-+				      NULL, &gtp_operations);
++	gtp_dir = debugfs_create_file("gtp",
++				      S_IFREG | S_IRUSR | S_IWUSR,
++				      NULL, NULL, &gtp_operations);
 +	if (gtp_dir == NULL || gtp_dir == ERR_PTR(-ENODEV))
 +		return -ENOMEM;
 +
