@@ -1,96 +1,68 @@
+--- a/arch/arc/kernel/kgdb.c
++++ b/arch/arc/kernel/kgdb.c
+@@ -61,6 +61,7 @@ void pt_regs_to_gdb_regs(unsigned long *
+ 	to_gdb_regs(gdb_regs, kernel_regs, (struct callee_regs *)
+ 		current->thread.callee_reg);
+ }
++EXPORT_SYMBOL_GPL(pt_regs_to_gdb_regs);
+ 
+ void gdb_regs_to_pt_regs(unsigned long *gdb_regs, struct pt_regs *kernel_regs)
+ {
+--- a/arch/blackfin/kernel/kgdb.c
++++ b/arch/blackfin/kernel/kgdb.c
+@@ -73,6 +73,7 @@ void pt_regs_to_gdb_regs(unsigned long *
+ 	gdb_regs[BFIN_EXTRA3] = 0;
+ 	gdb_regs[BFIN_IPEND] = regs->ipend;
+ }
++EXPORT_SYMBOL_GPL(pt_regs_to_gdb_regs);
+ 
+ /*
+  * Extracts ebp, esp and eip values understandable by gdb from the values
+--- a/arch/microblaze/kernel/kgdb.c
++++ b/arch/microblaze/kernel/kgdb.c
+@@ -64,6 +64,7 @@ void pt_regs_to_gdb_regs(unsigned long *
+ 	__asm__ __volatile__ ("mfs %0, rtlbhi;" : "=r"(temp) : );
+ 	gdb_regs[GDB_RTLBHI] = temp;
+ }
++EXPORT_SYMBOL_GPL(pt_regs_to_gdb_regs);
+ 
+ void gdb_regs_to_pt_regs(unsigned long *gdb_regs, struct pt_regs *regs)
+ {
+--- a/arch/mn10300/kernel/kgdb.c
++++ b/arch/mn10300/kernel/kgdb.c
+@@ -66,6 +66,7 @@ void pt_regs_to_gdb_regs(unsigned long *
+ 	gdb_regs[GDB_FR_DUMMY1]	= 0;
+ 	gdb_regs[GDB_FR_FS0]	= 0;
+ }
++EXPORT_SYMBOL_GPL(pt_regs_to_gdb_regs);
+ 
+ /*
+  * Extracts kernel SP/PC values understandable by gdb from the values
+--- a/arch/sparc/kernel/kgdb_32.c
++++ b/arch/sparc/kernel/kgdb_32.c
+@@ -41,6 +41,7 @@ void pt_regs_to_gdb_regs(unsigned long *
+ 	gdb_regs[GDB_FSR] = 0;
+ 	gdb_regs[GDB_CSR] = 0;
+ }
++EXPORT_SYMBOL_GPL(pt_regs_to_gdb_regs);
+ 
+ void sleeping_thread_to_gdb_regs(unsigned long *gdb_regs, struct task_struct *p)
+ {
+--- a/arch/sparc/kernel/kgdb_64.c
++++ b/arch/sparc/kernel/kgdb_64.c
+@@ -37,6 +37,7 @@ void pt_regs_to_gdb_regs(unsigned long *
+ 	gdb_regs[GDB_FPRS] = 0;
+ 	gdb_regs[GDB_Y] = regs->y;
+ }
++EXPORT_SYMBOL_GPL(pt_regs_to_gdb_regs);
+ 
+ void sleeping_thread_to_gdb_regs(unsigned long *gdb_regs, struct task_struct *p)
+ {
 --- /dev/null
 +++ b/arch/x86/include/asm/gtp.h
-@@ -0,0 +1,104 @@
+@@ -0,0 +1,16 @@
 +#ifndef _ASM_X86_GTP_H_
 +#define _ASM_X86_GTP_H_
-+
-+#ifdef CONFIG_X86_32
-+#define GTP_REG_ASCII_SIZE	128
-+#else
-+#define GTP_REG_ASCII_SIZE	296
-+#endif
-+
-+static inline void gtp_regs2ascii(struct pt_regs *regs, char *buf)
-+{
-+#ifdef CONFIG_X86_32
-+	sprintf(buf, "%08x", (unsigned int) swab32(regs->ax));
-+	buf += 8;
-+	sprintf(buf, "%08x", (unsigned int) swab32(regs->cx));
-+	buf += 8;
-+	sprintf(buf, "%08x", (unsigned int) swab32(regs->dx));
-+	buf += 8;
-+	sprintf(buf, "%08x", (unsigned int) swab32(regs->bx));
-+	buf += 8;
-+	sprintf(buf, "%08x", (unsigned int) swab32(regs->sp));
-+	buf += 8;
-+	sprintf(buf, "%08x", (unsigned int) swab32(regs->bp));
-+	buf += 8;
-+	sprintf(buf, "%08x", (unsigned int) swab32(regs->si));
-+	buf += 8;
-+	sprintf(buf, "%08x", (unsigned int) swab32(regs->di));
-+	buf += 8;
-+	sprintf(buf, "%08x", (unsigned int) swab32(regs->ip));
-+	buf += 8;
-+	sprintf(buf, "%08x", (unsigned int) swab32(regs->flags));
-+	buf += 8;
-+	sprintf(buf, "%08x", (unsigned int) swab32(regs->cs));
-+	buf += 8;
-+	sprintf(buf, "%08x", (unsigned int) swab32(regs->ss));
-+	buf += 8;
-+	sprintf(buf, "%08x", (unsigned int) swab32(regs->ds));
-+	buf += 8;
-+	sprintf(buf, "%08x", (unsigned int) swab32(regs->es));
-+	buf += 8;
-+	sprintf(buf, "%08x", (unsigned int) swab32(regs->fs));
-+	buf += 8;
-+	sprintf(buf, "%08x", (unsigned int) swab32(regs->gs));
-+	buf += 8;
-+#else
-+	sprintf(buf, "%016lx", (unsigned long) swab64(regs->ax));
-+	buf += 16;
-+	sprintf(buf, "%016lx", (unsigned long) swab64(regs->bx));
-+	buf += 16;
-+	sprintf(buf, "%016lx", (unsigned long) swab64(regs->cx));
-+	buf += 16;
-+	sprintf(buf, "%016lx", (unsigned long) swab64(regs->dx));
-+	buf += 16;
-+	sprintf(buf, "%016lx", (unsigned long) swab64(regs->si));
-+	buf += 16;
-+	sprintf(buf, "%016lx", (unsigned long) swab64(regs->di));
-+	buf += 16;
-+	sprintf(buf, "%016lx", (unsigned long) swab64(regs->bp));
-+	buf += 16;
-+	sprintf(buf, "%016lx", (unsigned long) swab64(regs->sp));
-+	buf += 16;
-+	sprintf(buf, "%016lx", (unsigned long) swab64(regs->r8));
-+	buf += 16;
-+	sprintf(buf, "%016lx", (unsigned long) swab64(regs->r9));
-+	buf += 16;
-+	sprintf(buf, "%016lx", (unsigned long) swab64(regs->r10));
-+	buf += 16;
-+	sprintf(buf, "%016lx", (unsigned long) swab64(regs->r11));
-+	buf += 16;
-+	sprintf(buf, "%016lx", (unsigned long) swab64(regs->r12));
-+	buf += 16;
-+	sprintf(buf, "%016lx", (unsigned long) swab64(regs->r13));
-+	buf += 16;
-+	sprintf(buf, "%016lx", (unsigned long) swab64(regs->r14));
-+	buf += 16;
-+	sprintf(buf, "%016lx", (unsigned long) swab64(regs->r15));
-+	buf += 16;
-+	sprintf(buf, "%016lx", (unsigned long) swab64(regs->ip));
-+	buf += 16;
-+	sprintf(buf, "%08x",
-+		(unsigned int) swab32((unsigned int)regs->flags));
-+	buf += 8;
-+	sprintf(buf, "%08x",
-+		(unsigned int) swab32((unsigned int)regs->cs));
-+	buf += 8;
-+	sprintf(buf, "%08x",
-+		(unsigned int) swab32((unsigned int)regs->ss));
-+	buf += 8;
-+#endif
-+}
 +
 +static inline void gtp_copy_and_adjuest_regs(struct pt_regs *dest,
 +					     struct pt_regs *src)
@@ -107,7 +79,7 @@
 +#endif
 --- a/kernel/Makefile
 +++ b/kernel/Makefile
-@@ -112,6 +112,8 @@ obj-$(CONFIG_CRASH_DUMP) += crash_dump.o
+@@ -93,6 +93,8 @@ obj-$(CONFIG_CRASH_DUMP) += crash_dump.o
  obj-$(CONFIG_JUMP_LABEL) += jump_label.o
  obj-$(CONFIG_CONTEXT_TRACKING) += context_tracking.o
  
@@ -116,26 +88,30 @@
  $(obj)/configs.o: $(obj)/config_data.h
  
  # config_data.h contains the same information as ikconfig.h but gzipped.
+--- a/kernel/debug/gdbstub.c
++++ b/kernel/debug/gdbstub.c
+@@ -258,6 +258,7 @@ char *kgdb_mem2hex(char *mem, char *buf,
+ 
+ 	return buf;
+ }
++EXPORT_SYMBOL_GPL(kgdb_mem2hex);
+ 
+ /*
+  * Convert the hex array pointed to by buf into binary to be placed in
+@@ -349,6 +350,7 @@ void pt_regs_to_gdb_regs(unsigned long *
+ 		idx += dbg_reg_def[i].size;
+ 	}
+ }
++EXPORT_SYMBOL_GPL(pt_regs_to_gdb_regs);
+ 
+ void gdb_regs_to_pt_regs(unsigned long *gdb_regs, struct pt_regs *regs)
+ {
 --- /dev/null
 +++ b/kernel/gtp.c
-@@ -0,0 +1,878 @@
+@@ -0,0 +1,876 @@
 +/*
 + * KGTP is a realtime and lightweight Linux debugger and tracer.
 + * It makes Linux Kernel supply a GDB remote debug interface.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 + *
 + * Copyright(C) KGTP team (kgtp.googlecode.com), 2010-2013
 + *
@@ -151,14 +127,8 @@
 +#include <linux/interrupt.h>
 +#include <linux/debugfs.h>
 +#include <linux/slab.h>
++#include <linux/kgdb.h>
 +#include <asm/gtp.h>
-+
-+#ifndef ULONGEST
-+#define ULONGEST		uint64_t
-+#endif
-+#ifndef CORE_ADDR
-+#define CORE_ADDR		unsigned long
-+#endif
 +
 +#define GTP_RW_MAX		16384
 +#define GTP_RW_BUFP_MAX		(GTP_RW_MAX - 4 - gtp_rw_size)
@@ -173,16 +143,16 @@
 +	struct list_head	node;
 +	char			type;
 +	union {
-+		ULONGEST	reg_mask;
++		uint64_t	reg_mask;
 +	} u;
 +};
 +
 +struct gtp_entry {
 +	struct list_head	node;
-+	ULONGEST		num;
-+	ULONGEST		addr;
-+	ULONGEST		step;
-+	ULONGEST		pass;
++	uint64_t		num;
++	uint64_t		addr;
++	uint64_t		step;
++	uint64_t		pass;
 +	int			nopass;
 +	int			kpreg;
 +	struct kprobe		kp;
@@ -193,7 +163,7 @@
 +
 +struct gtp_frame_head {
 +	int		frame_num;
-+	ULONGEST	trace_num;
++	uint64_t	trace_num;
 +	char		*next;
 +};
 +
@@ -211,7 +181,6 @@
 +
 +static int			gtp_circular;
 +
-+/* This spin_lock protects the gtp_frame.  */
 +static DEFINE_SPINLOCK(gtp_frame_lock);
 +static int			gtp_frame_num;
 +static char			*gtp_frame;
@@ -350,7 +319,7 @@
 +	return ret;
 +}
 +
-+static struct gtp_entry *gtp_list_add(ULONGEST num, ULONGEST addr)
++static struct gtp_entry *gtp_list_add(uint64_t num, uint64_t addr)
 +{
 +	struct gtp_entry	*ret = kzalloc(sizeof(struct gtp_entry),
 +					       GFP_KERNEL);
@@ -359,7 +328,7 @@
 +		goto out;
 +	ret->num = num;
 +	ret->addr = addr;
-+	ret->kp.addr = (kprobe_opcode_t *) (CORE_ADDR)addr;
++	ret->kp.addr = (kprobe_opcode_t *) (unsigned long)addr;
 +	ret->kp.pre_handler = gtp_kp_pre_handler;
 +	INIT_LIST_HEAD(&ret->action_list);
 +
@@ -369,7 +338,7 @@
 +	return ret;
 +}
 +
-+static struct gtp_entry *gtp_list_find(ULONGEST num, ULONGEST addr)
++static struct gtp_entry *gtp_list_find(uint64_t num, uint64_t addr)
 +{
 +	struct gtp_entry	*tpe;
 +	struct list_head	*cur;
@@ -414,11 +383,8 @@
 +	gtp_frame_current = NULL;
 +}
 +
-+static int gtp_gdbrsp_qtinit(void)
++static int gtp_gdbrsp_qtinit(char *pkg)
 +{
-+	if (gtp_start)
-+		return -EBUSY;
-+
 +	gtp_list_release();
 +
 +	if (gtp_frame)
@@ -430,13 +396,10 @@
 +static int gtp_gdbrsp_qtdp(char *pkg)
 +{
 +	int			addnew = 1;
-+	ULONGEST		num, addr;
++	uint64_t		num, addr;
 +	struct gtp_entry	*tpe;
 +
 +	pr_devel("gtp_gdbrsp_qtdp: %s\n", pkg);
-+
-+	if (gtp_start)
-+		return -EBUSY;
 +
 +	if (pkg[0] == '-') {
 +		pkg++;
@@ -528,7 +491,7 @@
 +static int gtp_gdbrsp_qtbuffer(char *pkg)
 +{
 +	if (strncmp("circular:", pkg, 9) == 0) {
-+		ULONGEST setting;
++		uint64_t setting;
 +
 +		pkg += 9;
 +		if (pkg[0] == '\0')
@@ -594,9 +557,6 @@
 +
 +static int gtp_gdbrsp_qtframe(char *pkg)
 +{
-+	if (gtp_start)
-+		return -EBUSY;
-+
 +	if (strncmp(pkg, "pc:", 3) == 0)	/* Not support.  */
 +		return 1;
 +	else if (strncmp(pkg, "tdp:", 4) == 0)	/* Not support.  */
@@ -606,7 +566,7 @@
 +	else if (strncmp(pkg, "outside:", 8) == 0)	/* Not support.  */
 +		return 1;
 +	else {
-+		ULONGEST		num;
++		uint64_t		num;
 +		struct gtp_frame_head	*ret;
 +
 +		if (pkg[0] == '\0')
@@ -641,7 +601,7 @@
 +	return 1;
 +}
 +
-+static int gtp_gdbrsp_qtstop(void)
++static int gtp_gdbrsp_qtstop(char *pkg)
 +{
 +	struct gtp_entry	*tpe;
 +	struct list_head	*cur;
@@ -662,13 +622,10 @@
 +	return 0;
 +}
 +
-+static int gtp_gdbrsp_qtstart(void)
++static int gtp_gdbrsp_qtstart(char *pkg)
 +{
 +	struct gtp_entry	*tpe;
 +	struct list_head	*cur;
-+
-+	if (gtp_start)
-+		return -EBUSY;
 +
 +	if (!gtp_frame) {
 +		gtp_frame = vmalloc(GTP_FRAME_SIZE);
@@ -683,7 +640,7 @@
 +		if (!list_empty(&tpe->action_list)) {
 +			int	ret = register_kprobe(&tpe->kp);
 +			if (ret < 0) {
-+				gtp_gdbrsp_qtstop();
++				gtp_gdbrsp_qtstop(NULL);
 +				return ret;
 +			}
 +			tpe->kpreg = 1;
@@ -695,26 +652,53 @@
 +	return 0;
 +}
 +
++struct QTpkg_s {
++	const char	*header;
++
++	/* If size is bigger than 0, this is the size of package's header.
++	   And this package has some data after header need send to fun.
++	   If size is 0, this package just has a header.  */
++	int		size;
++
++	/* If check_start is true, before call fun, need check if gtp_start.
++	   If gtp_start, then return -EBUSY.  */
++	int		check_start;
++
++	int		(*fun)(char *pkg);
++};
++
++struct QTpkg_s QTpkgs[] = {
++	{"init", 		0, 1,	gtp_gdbrsp_qtinit},
++	{"DP:",			3, 1,	gtp_gdbrsp_qtdp},
++	{"Disconnected:",	13, 0,	gtp_gdbrsp_qtdisconnected},
++	{"Buffer:",		7, 0,	gtp_gdbrsp_qtbuffer},
++	{"Frame:",		6, 1,	gtp_gdbrsp_qtframe},
++	{"Start",		0, 1,	gtp_gdbrsp_qtstart},
++	{"Stop",			0, 0,	gtp_gdbrsp_qtstop},
++};
++
 +static int gtp_gdbrsp_QT(char *pkg)
 +{
 +	int	ret = 1;
++	int	i;
 +
 +	pr_devel("gtp_gdbrsp_QT: %s\n", pkg);
 +
-+	if (strcmp("init", pkg) == 0)
-+		ret = gtp_gdbrsp_qtinit();
-+	else if (strncmp("DP:", pkg, 3) == 0)
-+		ret = gtp_gdbrsp_qtdp(pkg + 3);
-+	else if (strncmp("Disconnected:", pkg, 13) == 0)
-+		ret = gtp_gdbrsp_qtdisconnected(pkg + 13);
-+	else if (strncmp("Buffer:", pkg, 7) == 0)
-+		ret = gtp_gdbrsp_qtbuffer(pkg + 7);
-+	else if (strncmp("Frame:", pkg, 6) == 0)
-+		ret = gtp_gdbrsp_qtframe(pkg + 6);
-+	else if (strcmp("Start", pkg) == 0)
-+		ret = gtp_gdbrsp_qtstart();
-+	else if (strcmp("Stop", pkg) == 0)
-+		ret = gtp_gdbrsp_qtstop();
++	for (i = 0; i < sizeof (QTpkgs) / sizeof (struct QTpkg_s); i++) {
++		int	not_same;
++
++		if (QTpkgs[i].size == 0)
++			not_same = strcmp(QTpkgs[i].header, pkg);
++		else
++			not_same = strncmp(QTpkgs[i].header, pkg,
++					       QTpkgs[i].size);
++		if (not_same)
++			continue;
++		if (QTpkgs[i].check_start && gtp_start)
++			ret = -EBUSY;
++		else
++			ret =  QTpkgs[i].fun(pkg + QTpkgs[i].size);
++	}
 +
 +	return ret;
 +}
@@ -724,7 +708,7 @@
 +static int gtp_gdbrsp_m(char *pkg)
 +{
 +	int		i;
-+	ULONGEST	addr, len;
++	uint64_t	addr, len;
 +
 +	/* Get add and len.  */
 +	if (pkg[0] == '\0')
@@ -737,13 +721,13 @@
 +	if (len == 0)
 +		return -EINVAL;
 +	len &= 0xffff;
-+	len = (ULONGEST) min((int)(GTP_RW_BUFP_MAX / 2),
++	len = (uint64_t) min((int)(GTP_RW_BUFP_MAX / 2),
 +			     (int)len);
 +
 +	pr_devel("gtp_gdbrsp_m: addr = 0x%lx len = %d\n",
 +		 (unsigned long) addr, (int) len);
 +
-+	if (probe_kernel_read(gtp_m_buffer, (void *)(CORE_ADDR)addr,
++	if (probe_kernel_read(gtp_m_buffer, (void *)(unsigned long)addr,
 +			      (size_t)len))
 +		return -EFAULT;
 +
@@ -761,7 +745,7 @@
 +	char			*next;
 +	struct gtp_frame_reg	*fr = NULL;
 +
-+	if (GTP_RW_BUFP_MAX < GTP_REG_ASCII_SIZE)
++	if (GTP_RW_BUFP_MAX < NUMREGBYTES * 2)
 +		return -E2BIG;
 +
 +	if (gtp_start || !gtp_frame_current)
@@ -770,14 +754,18 @@
 +	/* Get the fr.  */
 +	next = gtp_frame_current->next;
 +	if (next[0] == 'r') {
++		unsigned long		gdb_regs[(NUMREGBYTES +
++					sizeof(unsigned long) - 1) /
++					sizeof(unsigned long)];
 +		fr = (struct gtp_frame_reg *) (next + 1);
-+		gtp_regs2ascii(&fr->regs, gtp_rw_bufp);
++		pt_regs_to_gdb_regs(gdb_regs, &fr->regs);
++		kgdb_mem2hex((char *)gdb_regs, gtp_rw_bufp, NUMREGBYTES);
 +	} else {
 +empty_out:
-+		memset(gtp_rw_bufp, '0', GTP_REG_ASCII_SIZE);
++		memset(gtp_rw_bufp, '0', NUMREGBYTES * 2);
 +	}
-+	gtp_rw_bufp += GTP_REG_ASCII_SIZE;
-+	gtp_rw_size += GTP_REG_ASCII_SIZE;
++	gtp_rw_bufp += NUMREGBYTES * 2;
++	gtp_rw_size += NUMREGBYTES * 2;
 +	return 1;
 +}
 +
@@ -811,8 +799,8 @@
 +	down(&gtp_rw_lock);
 +	vfree(gtp_rw_buf);
 +
-+	gtp_gdbrsp_qtstop();
-+	gtp_gdbrsp_qtinit();
++	gtp_gdbrsp_qtstop(NULL);
++	gtp_gdbrsp_qtinit(NULL);
 +	vfree(gtp_frame);
 +	gtp_frame = NULL;
 +
@@ -999,7 +987,7 @@
 +MODULE_LICENSE("GPL");
 --- a/lib/Kconfig.debug
 +++ b/lib/Kconfig.debug
-@@ -1560,6 +1560,20 @@ config DMA_API_DEBUG
+@@ -1578,6 +1578,21 @@ config DMA_API_DEBUG
  	  This option causes a performance degredation.  Use only if you want
  	  to debug device drivers. If unsure, say N.
  
@@ -1008,6 +996,7 @@
 +	depends on X86
 +	select KPROBES
 +	select DEBUG_FS
++	select KGDB
 +	---help---
 +	  KGTP is a flexible, lightweight and realtime Linux (include
 +	  Android) debugger and tracer.
