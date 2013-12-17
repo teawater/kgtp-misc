@@ -75,7 +75,6 @@ ps -e
 attach xxx
 p c
 
-#User space trace
 inferior 1
 x vfs_write
 ps -e
@@ -417,6 +416,7 @@ p linux_banner
 p jiffies_64
 #-----------------------------------------------------------------------
 sudo su -
+tail -f /var/log/syslog
 
 echo clear > /sys/kernel/debug/kmemleak
 modprobe kmemleak-test
@@ -424,6 +424,8 @@ echo scan > /sys/kernel/debug/kmemleak
 
 #Get info of kmemleak
 cat /sys/kernel/debug/kmemleak
+
+target remote /sys/kernel/debug/gtp
 
 p jiffies_64
 #Access static LIST_HEAD(modules)
@@ -444,7 +446,7 @@ tstop
 tfind
 
 #Access user space program
-gcc -g ~/kernel/kgtp-misc/test.c
+gcc -g /home/teawater/kernel/kgtp-misc/test.c
 ./a.out
 sudo gdb
 target extended-remote /sys/kernel/debug/gtp
@@ -465,29 +467,22 @@ tfind
 p c
 bt
 
-#User space attach
-gcc -g ~/kernel/kgtp-misc/test.c
-./a.out
-gtpe
-add-inferior
-inferior 2
-file a.out
-!ps -e | grep a.out
-attach xxx
-p c
-
 #syscall kernel to user
+sudo gdb ./vmlinux
+target extended-remote /sys/kernel/debug/gtp
+add-inferior -exec ./a.out
+inferior 2
+attach xxx
 inferior 1
+x vfs_write
 trace vfs_write if ($current_task_pid == xxx)
 actions
 collect $bt
 end
 trace vfs_write if ($current_task_pid == xxx)
-inferior 2
 actions
 collect $current
 collect $bt
-collect c
 end
 tvariable $bt=1024
 tstart
@@ -498,47 +493,53 @@ kill xxx
 #Offline debug
 gdb ./vmlinux
 target remote | perl /home/teawater/kernel/kgtp/getgtprsp.pl
-trace vfs_readdir
+trace vfs_read
 actions
 collect $bt
 end
 tstart
 tstop
-sudo ~/kernel/kgtp/putgtprsp gtpstart
-sudo ~/kernel/kgtp/putgtprsp gtpstop
+sudo /home/teawater//kernel/kgtp/putgtprsp gtpstart
+sudo /home/teawater//kernel/kgtp/putgtprsp gtpstop
 target tfile /sys/kernel/debug/gtpframe
 
 #TSV
-gtp
+target remote /sys/kernel/debug/gtp
 set disconnected-tracing off
 d
 set pagination off
 tvariable $bt=1024
 tvariable $p_count
 tvariable $p_cc
-set $tmp=0
-while $tmp<$cpu_number
-eval "tvariable $p_cc%d",$tmp
-set $tmp=$tmp+1
-end
+tvariable $p_pc
 tvariable $ignore_error=1
-#trace arch_local_irq_disable
-#Find native_irq_disable
-trace irqflags.h:39
+trace arch_local_irq_disable
   commands
     teval $p_count=$clock
+    teval $p_pc=(uint64_t)$rip
   end
-#Find the native_irq_enable
-trace irqflags.h:44 if ($p_count && $p_cc < $clock - $p_count)
+trace arch_local_irq_enable if ($p_count && $p_cc < $clock - $p_count)
   commands
     teval $p_cc = $clock - $p_count
     collect $bt
     collect $p_cc
+    collect $p_pc
     teval $p_count=0
   end
 enable
 set pagination on
-source /home/teawater/kernel/kgtp-misc/show/20121110/slow.py
+source /home/teawater/kernel/kgtp-misc/show/20131019/slow.py
+
+p $rip
+!cat ~/tmp/t | grep 0xffffffff8104bbb3
+x $p_pc
+!cat ~/tmp/t | grep 0xffffffff814c12a4
+monitor disable 0xffffffff8104bbb3
+monitor disable 0xffffffff814c12a4
+monitor disable
+tstart
+tstop
+source /home/teawater/kernel/kgtp-misc/show/20131019/slow.py
 
 #Output directly
 tfind -1
@@ -553,15 +554,13 @@ teval $p_count=0
 end
 tstart
 tstop
-sudo ~/kernel/kgtp/putgtprsp gtpstart
-sudo ~/kernel/kgtp/putgtprsp gtpstop
-tail -f /var/log/syslog
+sudo /home/teawater//kernel/kgtp/putgtprsp gtpstart
+sudo /home/teawater//kernel/kgtp/putgtprsp gtpstop
 
-sudo su
-rmmod gtp
+
 echo scan > /sys/kernel/debug/kmemleak
-cat /sys/kernel/debug/kmemleak
-echo clear > /sys/kernel/debug/kmemleak
+set pagination off
+target remote /sys/kernel/debug/gtp
 
 set disconnected-tracing off
 
@@ -571,19 +570,17 @@ make P=1
 sudo insmod gtp.ko
 sudo insmod plugin_example.ko
 sudo gdb ./vmlinux
-gtp
+target remote /sys/kernel/debug/gtp
 info tvariables
 !cat /proc/kallsyms
-trace vfs_readdir
+trace vfs_read
 actions
 teval $test3=(int64_t)$rip
 teval $test3=(int64_t)0x...
 end
 tstart
-!ls
 tstop
 quit
-sudo rmmod plugin_example
 
 #Watch tracepoints
 trace *&jiffies_64
@@ -634,8 +631,7 @@ trace *0
     collect $watch_prev_val
   end
 list alloc_inode
-trace 214
-#trace 222
+trace 215
   commands
     teval $watch_set_addr=0
     teval $watch_size=4
@@ -645,10 +641,8 @@ trace 214
     teval $watch_start=&(inode->i_op)
     teval $watch_start=&(inode->i_fop)
   end
-#list destroy_inode
-#trace 258
-#trace 270
-trace destroy_inode
+list destroy_inode
+trace 262
   commands
     teval $watch_stop=&(inode->i_uid)
     teval $watch_stop=&(inode->i_gid)
@@ -664,6 +658,7 @@ display $cpu_id
 display $watch_val
 display $watch_prev_val
 
+
 trace *1
   commands
     teval $watch_static=0
@@ -674,11 +669,8 @@ trace *1
     collect $watch_val
     collect $watch_prev_val
   end
-#Need set in get_empty_filp:spin_lock_init(&f->f_lock);
-#list get_empty_filp
-#trace 140
-#trace 135
-trace file_table.c:140
+list get_empty_filp
+trace 135
   commands
     teval $watch_set_addr=1
     teval $watch_size=4
@@ -686,18 +678,11 @@ trace file_table.c:140
     teval $watch_size=8
     teval $watch_start=&(f->f_op)
   end
-#list fput
-#trace 309
-trace file_table.c:307
+list file_free_rcu
+trace 48
   commands
-    teval $watch_stop=&(file->f_pos)
-    teval $watch_stop=&(file->f_op)
-  end
-
-trace file_sb_list_del
-  commands
-    teval $watch_stop=&(file->f_pos)
-    teval $watch_stop=&(file->f_op)
+    teval $watch_stop=&(f->f_pos)
+    teval $watch_stop=&(f->f_op)
   end
 tstart
 cat gtp.ko
@@ -707,16 +692,13 @@ display $watch_val
 display $watch_prev_val
 
 #step
-#sudo gdb /usr/lib/debug/lib/modules/$(uname -r)/vmlinux
-target remote /sys/kernel/debug/gtp
-#set disconnected-tracing on
 trace vfs_read
 passcount 1
   commands
-    collect $bt
+    collect $regs
     collect $step_count
-    while-stepping 2000
-      collect $bt
+    while-stepping 1000
+      collect $regs
       collect $step_count
     end
   end
@@ -728,14 +710,14 @@ display $cpu_id
 display $step_count
 monitor replay
 tfind -1
-b security_file_permission
+b
 
 trace do_IRQ
 passcount 1
   commands
     collect $bt
     collect $step_count
-    while-stepping 7000
+    while-stepping 1000
       collect $bt
       collect $step_count
     end
@@ -749,6 +731,7 @@ monitor replay
 tfind -1
 b
 
+rmmod plugin_example
 rmmod gtp
 echo scan > /sys/kernel/debug/kmemleak
 cat /sys/kernel/debug/kmemleak
