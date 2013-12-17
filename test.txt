@@ -1,3 +1,6 @@
+telnet 172.20.0.12
+ftp 172.20.0.12
+-------------------------------------------------------------------------
 #Test if the kmemleak is work or not
 echo clear > /sys/kernel/debug/kmemleak
 ftp 172.20.0.12
@@ -36,11 +39,32 @@ tstart
 tstop
 tfind
 
-#User space attach
+#Access user space program
 gcc -g -static ~/kernel/kgtp-misc/test.c
 ftp 172.20.0.12
 binary
 put a.out
+nc -l -p 8888 < /sys/kernel/debug/gtp >/sys/kernel/debug/gtp &
+./a.out
+gdb
+target extended-remote 172.20.0.12:8888
+file a.out
+attach xxx
+
+p c
+
+trace 14
+actions
+collect c
+collect $bt
+end
+tstart
+tstop
+tfind
+p c
+bt
+
+#syscall kernel to user
 nc -l -p 8888 < /sys/kernel/debug/gtp >/sys/kernel/debug/gtp &
 ./a.out
 target extended-remote 172.20.0.12:8888
@@ -58,16 +82,16 @@ ps -e
 p $inferior_pid
 trace vfs_write if ($current_task_pid == xxx)
 actions
-teval $inferior_pid=80
+#teval $inferior_pid=85
 collect $bt
 end
 trace vfs_write if ($current_task_pid == xxx)
 inferior 2
 actions
-teval $inferior_pid=80
+#teval $inferior_pid=85
 collect $current
 collect $bt
-collect c
+#collect c
 end
 tvariable $bt=1024
 tstart
@@ -118,12 +142,12 @@ tvariable $p_cc
 tvariable $p_pc
 
 tvariable $ignore_error=1
-trace raw_local_irq_disable
+trace arch_local_irq_disable
   commands
     teval $p_count=$clock
     teval $p_pc=(uint64_t)$rip
   end
-trace raw_local_irq_enable if ($p_count && $p_cc < $clock - $p_count)
+trace arch_local_irq_enable if ($p_count && $p_cc < $clock - $p_count)
   commands
     teval $p_cc = $clock - $p_count
     collect $bt
@@ -182,10 +206,10 @@ put gtpstop
 /putgtprsp gtpstart
 /putgtprsp gtpstop
 
-rmmod gtp
-echo scan > /sys/kernel/debug/kmemleak
-cat /sys/kernel/debug/kmemleak
-echo clear > /sys/kernel/debug/kmemleak
+#rmmod gtp
+#echo scan > /sys/kernel/debug/kmemleak
+#cat /sys/kernel/debug/kmemleak
+#echo clear > /sys/kernel/debug/kmemleak
 
 #Plugin
 make clean
@@ -197,16 +221,16 @@ insmod gtp.ko
 insmod plugin_example.ko
 nc -l -p 8888 < /sys/kernel/debug/gtp >/sys/kernel/debug/gtp &
 gdb ./vmlinux
+set pagination off
 target remote 172.20.0.12:8888
 info tvariables
 cat /proc/kallsyms
-trace vfs_readdir
+trace vfs_read
 actions
 teval $test3=(int64_t)$rip
 teval $test3=(int64_t)0x...
 end
 tstart
-ls
 tstop
 quit
 rmmod plugin_example
@@ -242,6 +266,7 @@ tstart
 tstop
 
 #error
+d
 trace *&jiffies_64
   commands
     teval $watch_set_id=100
@@ -274,7 +299,8 @@ trace 215
     teval $watch_start=&(inode->i_op)
     teval $watch_start=&(inode->i_fop)
   end
-trace destroy_inode
+list destroy_inode
+trace 262
   commands
     teval $watch_stop=&(inode->i_uid)
     teval $watch_stop=&(inode->i_gid)
@@ -302,7 +328,7 @@ trace *1
     collect $watch_prev_val
   end
 list get_empty_filp
-trace 133
+trace 135
   commands
     teval $watch_set_addr=1
     teval $watch_size=4
@@ -310,10 +336,11 @@ trace 133
     teval $watch_size=8
     teval $watch_start=&(f->f_op)
   end
-trace file_kill
+list file_free_rcu
+trace 48
   commands
-    teval $watch_stop=&(file->f_pos)
-    teval $watch_stop=&(file->f_op)
+    teval $watch_stop=&(f->f_pos)
+    teval $watch_stop=&(f->f_op)
   end
 tstart
 cat gtp.ko
@@ -360,6 +387,7 @@ monitor replay
 tfind -1
 b
 
+rmmod plugin_example
 rmmod gtp
 echo scan > /sys/kernel/debug/kmemleak
 cat /sys/kernel/debug/kmemleak
