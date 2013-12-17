@@ -415,6 +415,18 @@ tstart
 tstop
 tfind
 
+#Access user space program
+gcc -g ~/kernel/kgtp-misc/test.c
+./a.out
+sudo gdb
+target extended-remote /sys/kernel/debug/gtp
+file a.out
+attach xxx
+
+p c
+
+
+
 #User space attach
 gcc -g ~/kernel/kgtp-misc/test.c
 ./a.out
