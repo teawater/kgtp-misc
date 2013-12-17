@@ -421,11 +421,21 @@ gcc -g ~/kernel/kgtp-misc/test.c
 sudo gdb
 target extended-remote /sys/kernel/debug/gtp
 file a.out
+!ps -e | grep a.out
 attach xxx
 
 p c
 
-
+trace 14
+actions
+collect c
+collect $bt
+end
+tstart
+tstop
+tfind
+p c
+bt
 
 #User space attach
 gcc -g ~/kernel/kgtp-misc/test.c
@@ -438,7 +448,7 @@ file a.out
 attach xxx
 p c
 
-#User space trace
+#syscall kernel to user
 inferior 1
 trace vfs_write if ($current_task_pid == xxx)
 actions

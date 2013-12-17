@@ -27,3 +27,34 @@ $3 = -1222013392
 $4 = -590910451
 }}}
 In this example, I used some multiple Inferiors commands.  Please goto [http://sourceware.org/gdb/current/onlinedocs/gdb/Inferiors-and-Programs.html] get more info about it.
+
+
+=== 用户程序的内存 ===
+KGTP可以不同停止应用层程序的情况下直接读取其内存，例如：
+{{{
+#连接KGTP(这里和前面介绍的连接方法不同)
+(gdb) target extended-remote /sys/kernel/debug/gtp
+#增加一个新的inferior用来分析应用程序的信息。
+(gdb) add-inferior
+Added inferior 2
+#切换到这个inferior
+(gdb) inferior 2
+[Switching to inferior 2 [<null>] (<noexec>)]
+#转载这个程序的符号文件
+(gdb) file ~/kernel/svn/bak/a.out
+Reading symbols from /home/teawater/kernel/svn/bak/a.out...done.
+#attach到这个进程上(这不会停止这个程序)。
+(gdb) attach 10039
+Attaching to program: /home/teawater/kernel/svn/bak/a.out, Remote target
+Reading symbols from /lib/x86_64-linux-gnu/libc.so.6...(no debugging symbols found)...done.
+Loaded symbols for /lib/x86_64-linux-gnu/libc.so.6
+Reading symbols from /lib64/ld-linux-x86-64.so.2...(no debugging symbols found)...done.
+Loaded symbols for /lib64/ld-linux-x86-64.so.2
+0x0000000000000000 in ?? ()
+#于是可以读这个程序的内存
+(gdb) p c
+$3 = -1222013392
+(gdb) p c
+$4 = -590910451
+}}}
+在这个例子中，我使用了一个多inferior命令。请到 [http://sourceware.org/gdb/current/onlinedocs/gdb/Inferiors-and-Programs.html] 去取得其更多相关信息。
