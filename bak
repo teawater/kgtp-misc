@@ -1,0 +1,29 @@
+=== the memory of the user space program ===
+KGTP can read memory directly without stop this user space program.  For example:
+{{{
+#Connect to KGTP(it is different with the way that is introduced in before)
+(gdb) target extended-remote /sys/kernel/debug/gtp
+#Add a new inferior to parse info of the user space program.
+(gdb) add-inferior
+Added inferior 2
+#Switch to this inferior
+(gdb) inferior 2
+[Switching to inferior 2 [<null>] (<noexec>)]
+#Load the symbol of the program this you want to read
+(gdb) file ~/kernel/svn/bak/a.out
+Reading symbols from /home/teawater/kernel/svn/bak/a.out...done.
+#Attach to the program (it will not stop the program).
+(gdb) attach 10039
+Attaching to program: /home/teawater/kernel/svn/bak/a.out, Remote target
+Reading symbols from /lib/x86_64-linux-gnu/libc.so.6...(no debugging symbols found)...done.
+Loaded symbols for /lib/x86_64-linux-gnu/libc.so.6
+Reading symbols from /lib64/ld-linux-x86-64.so.2...(no debugging symbols found)...done.
+Loaded symbols for /lib64/ld-linux-x86-64.so.2
+0x0000000000000000 in ?? ()
+#Then you can read the value of this program.
+(gdb) p c
+$3 = -1222013392
+(gdb) p c
+$4 = -590910451
+}}}
+In this example, I used some multiple Inferiors commands.  Please goto [http://sourceware.org/gdb/current/onlinedocs/gdb/Inferiors-and-Programs.html] get more info about it.
