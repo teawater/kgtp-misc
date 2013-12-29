@@ -79,7 +79,7 @@
 +#endif
 --- a/kernel/Makefile
 +++ b/kernel/Makefile
-@@ -93,6 +93,8 @@ obj-$(CONFIG_CRASH_DUMP) += crash_dump.o
+@@ -94,6 +94,8 @@ obj-$(CONFIG_CRASH_DUMP) += crash_dump.o
  obj-$(CONFIG_JUMP_LABEL) += jump_label.o
  obj-$(CONFIG_CONTEXT_TRACKING) += context_tracking.o
  
