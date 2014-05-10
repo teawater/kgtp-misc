@@ -142,12 +142,15 @@ def update_patch(tag, patch, arch= "local"):
 	if patch == "gtp_for_review.patch":
 		callcmd("quilt import "+srcdir+"gtp_doc_for_review.patch")
 		callcmd("quilt push")
-	os.system("mkdir -p Documentation/gtp/")
-	quilt_add("Documentation/trace/gtp.txt")
-	quilt_add("Documentation/trace/gtp_quickstart.txt")
-	quilt_add("Documentation/gtp/howto.txt", True, "howto.txt")
-	quilt_add("Documentation/gtp/howtocn.txt", True, "howtocn.txt")
-	quilt_add("Documentation/gtp/quickstart.txt", True, "quickstart.txt")
+	#os.system("mkdir -p Documentation/gtp/")
+	#quilt_add("Documentation/trace/gtp.txt")
+	#quilt_add("Documentation/trace/gtp_quickstart.txt")
+	os.system("rm -rf Documentation/gtp/howto.txt")
+	os.system("rm -rf Documentation/gtp/howtocn.txt")
+	os.system("rm -rf Documentation/gtp/quickstart.txt")
+	#quilt_add("Documentation/gtp/howto.txt", True, "howto.txt")
+	#quilt_add("Documentation/gtp/howtocn.txt", True, "howtocn.txt")
+	#quilt_add("Documentation/gtp/quickstart.txt", True, "quickstart.txt")
 	#script
 	if patch == "gtp_for_review.patch":
 		callcmd("quilt import "+srcdir+"gtp_script_for_review.patch")

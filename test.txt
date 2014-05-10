@@ -85,7 +85,7 @@ actions
 collect $bt
 end
 trace vfs_write if ($current_task_pid == xxx)
-inferior 2
+#inferior 2
 actions
 #teval $inferior_pid=85
 collect $current
